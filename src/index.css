@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background-color: #0d1117;
+  color: #e6edf3;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(240, 246, 252, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6e7681;
+}
+
+/* Diff line highlights */
+.diff-line-add {
+  background: rgba(63, 185, 80, 0.15);
+}
+
+.diff-line-add .line-num {
+  background: rgba(63, 185, 80, 0.2);
+}
+
+.diff-line-del {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.diff-line-del .line-num {
+  background: rgba(248, 81, 73, 0.2);
+}
