@@ -1,7 +1,9 @@
 import { GitBranch } from 'lucide-react';
-import { sessionStats } from '@/data/mockData';
+import { useDataModel } from '@/hooks/useDataModel';
 
 export function Header() {
+  const { sessionStats } = useDataModel();
+
   return (
     <header className="flex items-center justify-between px-4 h-12 bg-bg-1 border-b border-border-1 shrink-0">
       <div className="flex items-center gap-4">
@@ -18,17 +20,20 @@ export function Header() {
           <span className="font-mono font-medium">{sessionStats.projectName}</span>
           <span className="flex items-center gap-1 text-text-2">
             <GitBranch className="w-3.5 h-3.5" />
-            {sessionStats.branch}
+            {sessionStats.activeBranch}
           </span>
         </div>
       </div>
 
-      {/* Session cost */}
-      <div className="flex items-center gap-3 font-mono text-xs px-3 py-1.5 bg-bg-2 rounded-md">
-        <span>
-          Session: <span className="text-accent-green font-medium">${sessionStats.totalCost.toFixed(2)}</span>
-        </span>
-        <span className="text-text-3">{(sessionStats.totalTokens / 1000).toFixed(0)}K tokens</span>
+      <div className="flex items-center gap-3">
+
+        {/* Session cost */}
+        <div className="flex items-center gap-3 font-mono text-xs px-3 py-1.5 bg-bg-2 rounded-md">
+          <span>
+            Session: <span className="text-accent-green font-medium">${sessionStats.totalCost.toFixed(2)}</span>
+          </span>
+          <span className="text-text-3">{(sessionStats.totalTokens / 1000).toFixed(0)}K tokens</span>
+        </div>
       </div>
     </header>
   );

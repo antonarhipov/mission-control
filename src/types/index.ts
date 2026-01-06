@@ -238,3 +238,157 @@ export interface FileDiff {
 
 // Tab types
 export type TabId = 'overview' | 'worktree' | 'diff' | 'cost' | 'config' | 'deps';
+
+// =============================================================================
+// V2 TYPES - Task-Centric Multi-Repository Architecture
+// =============================================================================
+// These types support the v2 refactor where Task becomes the central entity
+// and worktrees are implementation details. Existing v1 types remain above.
+
+// Project - Top-level container for repositories, teams, and agents
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  repositories: Repository[];
+  teams: Team[];
+  agents: Agent[];
+  budgets: Budget[];
+}
+
+// Repository - Represents a connected codebase
+export interface Repository {
+  id: string;
+  name: string;
+  path: string;
+  remoteUrl?: string;
+  defaultBranch: string;
+  status: 'connected' | 'disconnected' | 'error';
+  lastSynced?: string;
+}
+
+// CommitCost - Cost attribution per commit
+export interface CommitCost {
+  inputTokens: number;
+  outputTokens: number;
+  toolCalls: number;
+  totalCost: number;
+}
+
+// TaskCommit - Enhanced commit with repository reference and cost
+export interface TaskCommit {
+  id: string;
+  sha: string;
+  message: string;
+
+  // Attribution
+  agentId?: string;
+  authorType: 'agent' | 'human';
+  author: string;
+
+  // Repository context
+  repositoryId: string;
+  worktreeId: string;
+
+  // Changes
+  filesChanged: number;
+  additions: number;
+  deletions: number;
+
+  // Cost attribution
+  cost: CommitCost;
+
+  // File references (for filtering)
+  fileIds: string[];
+
+  timestamp: string;
+}
+
+// TaskFileChange - Enhanced file change with repository reference
+export interface TaskFileChange {
+  id: string;
+  path: string;
+  filename: string;
+
+  // Repository context
+  repositoryId: string;
+  worktreeId: string;
+
+  // Change details
+  changeType: 'added' | 'modified' | 'deleted';
+  additions: number;
+  deletions: number;
+
+  // Attribution
+  agentId?: string;
+
+  // Commit references
+  commitShas: string[];
+}
+
+// TaskWorktreeV2 - Simplified worktree (embedded in Task)
+export interface TaskWorktreeV2 {
+  id: string;
+  repositoryId: string;
+  branch: string;
+  baseBranch: string;
+  path: string;
+  status: 'active' | 'conflict' | 'completed' | 'merged';
+
+  // Worktree-specific data
+  fileChanges: FileChange[];
+  commits: Commit[];
+  conflicts?: ConflictInfo[];
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// TaskAgent - Agent assignment within a task (alias for WorktreeAgent)
+export type TaskAgent = WorktreeAgent;
+
+// PipelineStageV2 - Pipeline stage with cost tracking
+export interface PipelineStageV2 extends PipelineStage {
+  cost: number;
+}
+
+// TaskV2 - CENTRAL ENTITY for v2 architecture
+export interface TaskV2 {
+  // Basic info
+  id: string;
+  title: string;
+  description?: string;
+
+  // Status
+  status: 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  tags: string[];
+
+  // Team and agents (moved from Worktree)
+  teamId: string;
+  agents: TaskAgent[];
+
+  // Pipeline (moved from Worktree)
+  pipeline: PipelineStageV2[];
+  currentStage: string;
+
+  // Progress and cost (aggregated)
+  progress: number;
+  totalCost: number;
+
+  // Worktrees (embedded, not referenced)
+  worktrees: TaskWorktreeV2[];
+
+  // Aggregated data from all worktrees
+  commits: TaskCommit[];
+  fileChanges: TaskFileChange[];
+
+  // Dependencies
+  dependsOn?: string[];
+  blocks?: string[];
+
+  // Timestamps
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+}

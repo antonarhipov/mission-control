@@ -9,8 +9,9 @@ import {
   GitBranch,
   Users,
 } from 'lucide-react';
-import { tasks, worktrees, getAgentById, getTaskById } from '@/data/mockData';
-import type { Task, TaskStatus, Worktree } from '@/types';
+import { worktrees, getAgentById } from '@/data/mockData';
+import { useDataModel } from '@/hooks/useDataModel';
+import type { Task, TaskV2, TaskStatus, Worktree } from '@/types';
 
 // Extended task data with positions for the graph
 interface GraphNode extends Task {
@@ -19,10 +20,11 @@ interface GraphNode extends Task {
   column: number;
   row: number;
   worktree?: Worktree;
+  taskV2?: TaskV2; // For V2 data
 }
 
 // Calculate node positions based on dependencies
-function calculateGraphLayout(tasks: Task[]): GraphNode[] {
+function calculateGraphLayout(tasks: (Task | TaskV2)[], isV2: boolean): GraphNode[] {
   const nodeMap = new Map<string, GraphNode>();
   
   // Define column positions for each status
@@ -35,7 +37,7 @@ function calculateGraphLayout(tasks: Task[]): GraphNode[] {
   };
 
   // Group tasks by status for row calculation
-  const statusGroups: Record<TaskStatus, Task[]> = {
+  const statusGroups: Record<TaskStatus, (Task | TaskV2)[]> = {
     'done': [],
     'in-progress': [],
     'review': [],
@@ -52,19 +54,28 @@ function calculateGraphLayout(tasks: Task[]): GraphNode[] {
     const tasksInColumn = statusGroups[task.status];
     const row = tasksInColumn.indexOf(task);
     const totalInColumn = tasksInColumn.length;
-    
+
     // Center vertically based on number of tasks in column
     const startY = 200 - ((totalInColumn - 1) * 60);
-    
-    const worktree = task.worktreeId ? worktrees.find(w => w.id === task.worktreeId) : undefined;
-    
+
+    // Type guard for V2
+    const isTaskV2 = (t: Task | TaskV2): t is TaskV2 => {
+      return 'worktrees' in t && Array.isArray(t.worktrees);
+    };
+
+    const taskV2 = isTaskV2(task) ? task : undefined;
+    const worktree = !isV2 && 'worktreeId' in task && task.worktreeId
+      ? worktrees.find(w => w.id === task.worktreeId)
+      : undefined;
+
     nodeMap.set(task.id, {
-      ...task,
+      ...task as Task,
       x: columnX[task.status],
       y: startY + (row * 120),
       column: Object.keys(columnX).indexOf(task.status),
       row,
       worktree,
+      taskV2,
     });
   });
 
@@ -72,10 +83,11 @@ function calculateGraphLayout(tasks: Task[]): GraphNode[] {
 }
 
 export function DependenciesPanel() {
+  const { tasks, isV2 } = useDataModel();
   const [selectedTask, setSelectedTask] = useState<GraphNode | null>(null);
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<'graph' | 'list' | 'timeline'>('graph');
-  const graphNodes = calculateGraphLayout(tasks);
+  const graphNodes = calculateGraphLayout(tasks, isV2);
 
   // Find critical path
   const criticalPath = ['ORD-142', 'ORD-145', 'ORD-146'];
@@ -320,7 +332,11 @@ function GraphNodeCard({
   };
 
   const style = statusStyles[node.status];
-  const activeAgents = node.worktree?.agents.filter(a => a.isActive) || [];
+
+  // Get agents from either V2 task or V1 worktree
+  const activeAgents = node.taskV2
+    ? node.taskV2.agents.filter(a => a.isActive)
+    : (node.worktree?.agents.filter(a => a.isActive) || []);
 
   return (
     <button
@@ -405,14 +421,21 @@ function DependencyList({
   selectedTask,
   onSelectTask,
 }: {
-  tasks: Task[];
+  tasks: (Task | TaskV2)[];
   selectedTask: GraphNode | null;
-  onSelectTask: (task: Task) => void;
+  onSelectTask: (task: Task | TaskV2) => void;
 }) {
   return (
     <div className="space-y-2">
       {tasks.map(task => {
-        const worktree = task.worktreeId ? worktrees.find(w => w.id === task.worktreeId) : undefined;
+        // Type guard for V2
+        const isTaskV2 = (t: Task | TaskV2): t is TaskV2 => {
+          return 'worktrees' in t && Array.isArray(t.worktrees);
+        };
+        const taskV2 = isTaskV2(task) ? task : undefined;
+        const worktree = !taskV2 && 'worktreeId' in task && task.worktreeId
+          ? worktrees.find(w => w.id === task.worktreeId)
+          : undefined;
         const deps = task.dependsOn?.length || 0;
         const blocks = task.blocks?.length || 0;
 
@@ -456,9 +479,12 @@ function DependencyList({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {worktree && (
+                {(taskV2 || worktree) && (
                   <div className="flex -space-x-1">
-                    {worktree.agents.filter(a => a.isActive).slice(0, 3).map(wa => {
+                    {(taskV2
+                      ? taskV2.agents.filter(a => a.isActive).slice(0, 3)
+                      : worktree?.agents.filter(a => a.isActive).slice(0, 3) || []
+                    ).map(wa => {
                       const agent = getAgentById(wa.agentId);
                       return agent ? (
                         <span
@@ -524,7 +550,9 @@ function DependencyTimeline({
 
             <div className="space-y-2 pl-[140px]">
               {phase.tasks.map(task => {
-                const activeAgents = task.worktree?.agents.filter(a => a.isActive) || [];
+                const activeAgents = task.taskV2
+                  ? task.taskV2.agents.filter(a => a.isActive)
+                  : (task.worktree?.agents.filter(a => a.isActive) || []);
 
                 return (
                   <button
@@ -572,7 +600,7 @@ function TaskDetailSidebar({
   criticalPath,
 }: {
   task: GraphNode | null;
-  allTasks: Task[];
+  allTasks: (Task | TaskV2)[];
   criticalPath: string[];
 }) {
   if (!task) {
@@ -586,7 +614,10 @@ function TaskDetailSidebar({
     );
   }
 
-  const worktreeAgents = task.worktree?.agents || [];
+  // Get agents from either V2 task or V1 worktree
+  const worktreeAgents = task.taskV2
+    ? task.taskV2.agents
+    : (task.worktree?.agents || []);
   const dependencies = allTasks.filter(t => task.dependsOn?.includes(t.id));
   const blocking = allTasks.filter(t => task.blocks?.includes(t.id));
   const isOnCriticalPath = criticalPath.includes(task.id);

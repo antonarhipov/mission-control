@@ -1,19 +1,39 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { TabBar } from '@/components/layout/TabBar';
 import { OverviewPanel } from '@/components/panels/OverviewPanel';
 import { DiffPanel } from '@/components/panels/DiffPanel';
-import { WorktreePanel } from '@/components/panels/WorktreePanel';
+import { PipelinesPanel } from '@/components/panels/PipelinesPanel';
 import { CostPanel } from '@/components/panels/CostPanel';
 import { ConfigPanel } from '@/components/panels/ConfigPanel';
 import { DependenciesPanel } from '@/components/panels/DependenciesPanel';
+import { useDataModel } from '@/hooks/useDataModel';
 import { worktrees } from '@/data/mockData';
 import type { TabId } from '@/types';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  // Shared selected worktree state across tabs
+  const { tasks } = useDataModel();
+
+  // V1 state (kept for DiffPanel backward compatibility)
   const [selectedWorktreeId, setSelectedWorktreeId] = useState<string | null>(worktrees[0]?.id || null);
+
+  // Task-centric state
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(tasks[0]?.id || null);
+  const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null);
+
+  // Navigation helpers
+  const navigateToDiff = useCallback((taskId: string, commitSha?: string) => {
+    setSelectedTaskId(taskId);
+    setSelectedCommitSha(commitSha || null);
+    setActiveTab('diff');
+  }, []);
+
+  const navigateToPipeline = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+    setSelectedCommitSha(null); // Clear commit context
+    setActiveTab('worktree'); // Navigate to pipelines tab
+  }, []);
 
   const renderPanel = () => {
     switch (activeTab) {
@@ -22,13 +42,15 @@ function App() {
           <OverviewPanel
             selectedWorktreeId={selectedWorktreeId}
             onSelectWorktree={setSelectedWorktreeId}
+            onNavigateToPipeline={navigateToPipeline}
           />
         );
       case 'worktree':
         return (
-          <WorktreePanel
-            selectedWorktreeId={selectedWorktreeId}
-            onSelectWorktree={setSelectedWorktreeId}
+          <PipelinesPanel
+            selectedTaskId={selectedTaskId}
+            onSelectTask={setSelectedTaskId}
+            onNavigateToDiff={navigateToDiff}
           />
         );
       case 'diff':
@@ -36,6 +58,8 @@ function App() {
           <DiffPanel
             selectedWorktreeId={selectedWorktreeId}
             onSelectWorktree={setSelectedWorktreeId}
+            selectedTaskId={selectedTaskId}
+            selectedCommitSha={selectedCommitSha}
           />
         );
       case 'cost':

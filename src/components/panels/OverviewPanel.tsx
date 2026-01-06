@@ -7,30 +7,26 @@ import {
   MessageSquare,
   Terminal,
   GitCommit,
+  Folder,
+  DollarSign,
+  ArrowRight,
 } from 'lucide-react';
-import { WorktreeSidebar } from '@/components/shared/WorktreeSidebar';
-import { tasks, worktrees, getAgentById } from '@/data/mockData';
-import type { Task, Worktree } from '@/types';
+import { useDataModel } from '@/hooks/useDataModel';
+import type { Task, TaskV2, Agent } from '@/types';
 
 interface OverviewPanelProps {
   selectedWorktreeId: string | null;
   onSelectWorktree: (id: string | null) => void;
+  onNavigateToPipeline?: (taskId: string) => void;
 }
 
-export function OverviewPanel({ selectedWorktreeId, onSelectWorktree }: OverviewPanelProps) {
-  const selectedWorktree = worktrees.find(w => w.id === selectedWorktreeId);
+export function OverviewPanel({ selectedWorktreeId: _selectedWorktreeId, onSelectWorktree: _onSelectWorktree, onNavigateToPipeline }: OverviewPanelProps) {
+  // Note: Props kept for backward compatibility but unused in V2
 
   return (
-    <div className="grid grid-cols-[340px_1fr_320px] h-full">
-      {/* Left sidebar - Worktrees (shared component) */}
-      <WorktreeSidebar
-        selectedWorktreeId={selectedWorktreeId}
-        onSelectWorktree={onSelectWorktree}
-        showAllTasksOption={true}
-      />
-
-      {/* Main content - Task board filtered by worktree */}
-      <MainContent selectedWorktree={selectedWorktree} />
+    <div className="grid grid-cols-[1fr_320px] h-full">
+      {/* Main content - Task board (full width in V2, no sidebar) */}
+      <MainContent onNavigateToPipeline={onNavigateToPipeline} />
 
       {/* Right sidebar - Pending approvals only */}
       <ApprovalsPanel />
@@ -38,44 +34,21 @@ export function OverviewPanel({ selectedWorktreeId, onSelectWorktree }: Overview
   );
 }
 
-function MainContent({ selectedWorktree }: { selectedWorktree: Worktree | undefined }) {
-  const getFilteredTasks = () => {
-    if (!selectedWorktree) {
-      return tasks;
-    }
-
-    const worktreeTask = tasks.find(t => t.id === selectedWorktree.taskId);
-    if (!worktreeTask) return [];
-
-    const relatedIds = new Set<string>([worktreeTask.id]);
-    worktreeTask.dependsOn?.forEach(id => relatedIds.add(id));
-    worktreeTask.blocks?.forEach(id => relatedIds.add(id));
-
-    return tasks.filter(t => relatedIds.has(t.id));
-  };
-
-  const filteredTasks = getFilteredTasks();
+function MainContent({ onNavigateToPipeline }: { onNavigateToPipeline?: (taskId: string) => void }) {
+  const { tasks, isV2, repositories } = useDataModel();
 
   return (
     <div className="flex flex-col overflow-hidden bg-bg-0">
       <div className="px-5 py-3 border-b border-border-1 bg-bg-1 shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            {selectedWorktree ? (
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-semibold">{selectedWorktree.branch}</h2>
-                <span className="text-xs text-text-3">
-                  Task and related dependencies
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-semibold">All Tasks</h2>
-                <span className="text-xs text-text-3">
-                  {tasks.length} tasks across {worktrees.length} worktrees
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold">All Tasks</h2>
+              <span className="text-xs text-text-3">
+                {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+                {isV2 && repositories && repositories.length > 0 && ` across ${repositories.length} ${repositories.length === 1 ? 'repository' : 'repositories'}`}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium bg-bg-2 border border-border-1 rounded hover:bg-bg-3 transition-colors">
@@ -91,27 +64,27 @@ function MainContent({ selectedWorktree }: { selectedWorktree: Worktree | undefi
           <TaskColumn
             title="Backlog"
             icon="📋"
-            tasks={filteredTasks.filter((t) => t.status === 'backlog')}
-            emptyMessage={selectedWorktree ? "No backlog tasks" : undefined}
+            tasks={tasks.filter((t) => t.status === 'backlog')}
+            onNavigateToPipeline={onNavigateToPipeline}
           />
           <TaskColumn
             title="In Progress"
             icon="🔄"
-            tasks={filteredTasks.filter((t) => t.status === 'in-progress')}
+            tasks={tasks.filter((t) => t.status === 'in-progress')}
             highlight
-            emptyMessage={selectedWorktree ? "No active tasks" : undefined}
+            onNavigateToPipeline={onNavigateToPipeline}
           />
           <TaskColumn
             title="Review"
             icon="👁️"
-            tasks={filteredTasks.filter((t) => t.status === 'review')}
-            emptyMessage={selectedWorktree ? "Nothing in review" : undefined}
+            tasks={tasks.filter((t) => t.status === 'review')}
+            onNavigateToPipeline={onNavigateToPipeline}
           />
           <TaskColumn
             title="Done"
             icon="✅"
-            tasks={filteredTasks.filter((t) => t.status === 'done')}
-            emptyMessage={selectedWorktree ? "Nothing completed yet" : undefined}
+            tasks={tasks.filter((t) => t.status === 'done')}
+            onNavigateToPipeline={onNavigateToPipeline}
           />
         </div>
       </div>
@@ -124,13 +97,13 @@ function TaskColumn({
   icon,
   tasks,
   highlight,
-  emptyMessage,
+  onNavigateToPipeline,
 }: {
   title: string;
   icon: string;
-  tasks: Task[];
+  tasks: (Task | TaskV2)[];
   highlight?: boolean;
-  emptyMessage?: string;
+  onNavigateToPipeline?: (taskId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -145,22 +118,31 @@ function TaskColumn({
       </div>
 
       <div className="space-y-2 min-h-[100px]">
-        {tasks.length === 0 && emptyMessage && (
-          <div className="text-[11px] text-text-3 text-center py-4">
-            {emptyMessage}
-          </div>
-        )}
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} highlight={highlight} />
+          <TaskCard key={task.id} task={task} highlight={highlight} onNavigateToPipeline={onNavigateToPipeline} />
         ))}
       </div>
     </div>
   );
 }
 
-function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
-  const worktree = task.worktreeId ? worktrees.find(w => w.id === task.worktreeId) : null;
+function TaskCard({ task, highlight, onNavigateToPipeline }: { task: Task | TaskV2; highlight?: boolean; onNavigateToPipeline?: (taskId: string) => void }) {
+  const { getAgentById, worktrees } = useDataModel();
+
+  // Type guard to check if task is TaskV2
+  const isTaskV2 = (t: Task | TaskV2): t is TaskV2 => {
+    return 'worktrees' in t && Array.isArray(t.worktrees);
+  };
+
+  const taskV2 = isTaskV2(task) ? task : null;
+  const taskV1 = !isTaskV2(task) ? task : null;
+
+  // V1: Get worktree and agents
+  const worktree = taskV1?.worktreeId ? worktrees?.find(w => w.id === taskV1.worktreeId) : null;
   const worktreeAgents = worktree?.agents || [];
+
+  // V2: Get agents directly from task
+  const taskAgents = taskV2?.agents || [];
 
   return (
     <div
@@ -176,7 +158,7 @@ function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
         <div
           className={clsx(
             'w-2 h-2 rounded-sm',
-            task.priority === 'high' && 'bg-accent-red',
+            (task.priority === 'high' || task.priority === 'critical') && 'bg-accent-red',
             task.priority === 'medium' && 'bg-accent-amber',
             task.priority === 'low' && 'bg-accent-green'
           )}
@@ -209,6 +191,69 @@ function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
         ))}
       </div>
 
+      {/* V2: Current stage and metadata */}
+      {taskV2 && (
+        <div className="space-y-2 mb-2">
+          {/* Current pipeline stage */}
+          <div className="flex items-center gap-2 text-[10px] px-2 py-1.5 bg-bg-2 rounded">
+            <span className="text-text-3">Stage:</span>
+            <span className="font-medium text-text-1 flex-1 truncate">
+              {taskV2.currentStage}
+            </span>
+          </div>
+
+          {/* Repositories and cost */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-2 rounded flex-1">
+              <Folder className="w-3 h-3 text-text-3" />
+              <span className="text-text-2">
+                {taskV2.worktrees.length} {taskV2.worktrees.length === 1 ? 'repo' : 'repos'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-2 rounded">
+              <DollarSign className="w-3 h-3 text-accent-green" />
+              <span className="text-text-2 font-medium">
+                {taskV2.totalCost.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Agents */}
+          {taskAgents.length > 0 && (
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-bg-2 rounded">
+              <div className="flex -space-x-1 flex-1">
+                {taskAgents.slice(0, 3).map((ta) => {
+                  const agent = getAgentById(ta.agentId);
+                  if (!agent) return null;
+                  return (
+                    <span
+                      key={ta.agentId}
+                      className={clsx(
+                        'w-4 h-4 rounded flex items-center justify-center text-[8px]',
+                        ta.isActive && 'ring-1 ring-accent-green'
+                      )}
+                      style={{ backgroundColor: agent.color + '60' }}
+                    >
+                      {agent.emoji}
+                    </span>
+                  );
+                })}
+              </div>
+              {onNavigateToPipeline && (
+                <button
+                  onClick={() => onNavigateToPipeline(task.id)}
+                  className="flex items-center gap-0.5 text-[10px] text-accent-blue hover:text-accent-blue/80 font-medium"
+                >
+                  View Pipeline
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* V1: Worktree info */}
       {worktree && (
         <div className="flex items-center gap-2 mb-2 text-[10px] px-2 py-1.5 bg-bg-2 rounded">
           <GitBranch className="w-3 h-3 text-text-3" />
@@ -236,6 +281,7 @@ function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
         </div>
       )}
 
+      {/* Progress bar and status */}
       <div className="flex items-center justify-between">
         {task.progress !== undefined && (
           <div className="flex items-center gap-2 text-[11px] text-text-3">
@@ -256,7 +302,13 @@ function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
           </span>
         )}
 
-        {task.status === 'review' && worktree && (
+        {task.status === 'review' && taskV2 && (
+          <span className="text-[11px] text-text-3">
+            In {taskV2.currentStage}
+          </span>
+        )}
+
+        {task.status === 'review' && worktree && !taskV2 && (
           <span className="text-[11px] text-text-3">
             {worktree.currentStage}
           </span>
@@ -274,6 +326,8 @@ function TaskCard({ task, highlight }: { task: Task; highlight?: boolean }) {
 }
 
 function ApprovalsPanel() {
+  const { getAgentById } = useDataModel();
+
   const approvals = [
     {
       id: '1',
@@ -360,7 +414,7 @@ function ApprovalCard({
     options: string[];
     context?: string;
   };
-  agent: ReturnType<typeof getAgentById>;
+  agent: Agent | undefined;
 }) {
   const typeConfig = {
     decision: { icon: MessageSquare, label: 'Decision', color: 'text-accent-amber bg-accent-amber/20' },

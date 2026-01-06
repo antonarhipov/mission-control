@@ -1,9 +1,6 @@
 import { clsx } from 'clsx';
 import type { TabId } from '@/types';
-import { worktrees } from '@/data/mockData';
-
-const totalFileChanges = worktrees.reduce((sum, w) => sum + w.fileChanges.length, 0);
-const activeWorktrees = worktrees.filter(w => w.status === 'active' || w.status === 'conflict').length;
+import { useDataModel } from '@/hooks/useDataModel';
 
 interface Tab {
   id: TabId;
@@ -13,22 +10,41 @@ interface Tab {
   alert?: boolean;
 }
 
-// Reordered: Overview → Worktrees → Diff → Cost → Config → Dependencies
-const tabs: Tab[] = [
-  { id: 'overview', label: 'Overview', icon: '📊' },
-  { id: 'worktree', label: 'Worktrees', icon: '🌳', badge: activeWorktrees },
-  { id: 'diff', label: 'Diff Viewer', icon: '📝', badge: totalFileChanges },
-  { id: 'cost', label: 'Cost Analytics', icon: '💰' },
-  { id: 'config', label: 'Config', icon: '⚙️' },
-  { id: 'deps', label: 'Dependencies', icon: '🔗', badge: 2, alert: true },
-];
-
 interface TabBarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
 }
 
 export function TabBar({ activeTab, onTabChange }: TabBarProps) {
+  const { isV2, tasks, worktrees } = useDataModel();
+
+  // Calculate badge values based on V1 or V2 mode
+  const pipelineBadge = isV2
+    ? tasks.filter(t => t.status === 'in-progress' || t.status === 'review').length
+    : worktrees?.filter(w => w.status === 'active' || w.status === 'conflict').length || 0;
+
+  const diffBadge = isV2
+    ? tasks.reduce((sum, t) => {
+        const taskV2 = 'fileChanges' in t ? t : null;
+        return sum + (taskV2?.fileChanges?.length || 0);
+      }, 0)
+    : worktrees?.reduce((sum, w) => sum + w.fileChanges.length, 0) || 0;
+
+  // Reordered: Overview → Pipelines/Worktrees → Diff → Cost → Config → Dependencies
+  const tabs: Tab[] = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    {
+      id: 'worktree',
+      label: isV2 ? 'Pipelines' : 'Worktrees',
+      icon: isV2 ? '⚡' : '🌳',
+      badge: pipelineBadge
+    },
+    { id: 'diff', label: 'Diff Viewer', icon: '📝', badge: diffBadge },
+    { id: 'cost', label: 'Cost Analytics', icon: '💰' },
+    { id: 'config', label: 'Config', icon: '⚙️' },
+    { id: 'deps', label: 'Dependencies', icon: '🔗', badge: 2, alert: true },
+  ];
+
   return (
     <div className="flex gap-0.5 px-3 bg-bg-1 border-b border-border-1 h-[38px] items-end shrink-0">
       {tabs.map((tab) => (
