@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
 import {
   ZoomIn,
@@ -8,7 +8,15 @@ import {
   ChevronRight,
   GitBranch,
   Users,
+  X,
+  AlertCircle,
 } from 'lucide-react';
+import {
+  calculateCriticalPath,
+  validateDependencies,
+  type CriticalPathResult,
+  type ValidationResult
+} from '@/utils/dependencyGraph';
 import { worktrees, getAgentById } from '@/data/mockData';
 import { useDataModel } from '@/hooks/useDataModel';
 import type { Task, TaskV2, TaskStatus, Worktree } from '@/types';
@@ -82,15 +90,77 @@ function calculateGraphLayout(tasks: (Task | TaskV2)[], isV2: boolean): GraphNod
   return Array.from(nodeMap.values());
 }
 
-export function DependenciesPanel() {
+export function DependenciesPanel({
+  selectedTaskId,
+  focusedTaskId,
+  onSelectTask,
+  onNavigateToDiff,
+  onNavigateToPipeline,
+}: {
+  selectedTaskId?: string | null;
+  focusedTaskId?: string | null;
+  onSelectTask?: (taskId: string) => void;
+  onNavigateToDiff?: (taskId: string, commitSha?: string) => void;
+  onNavigateToPipeline?: (taskId: string) => void;
+} = {}) {
   const { tasks, isV2 } = useDataModel();
   const [selectedTask, setSelectedTask] = useState<GraphNode | null>(null);
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<'graph' | 'list' | 'timeline'>('graph');
   const graphNodes = calculateGraphLayout(tasks, isV2);
 
-  // Find critical path
-  const criticalPath = ['ORD-142', 'ORD-145', 'ORD-146'];
+  // Dynamic critical path calculation
+  const [criticalPathResult, setCriticalPathResult] = useState<CriticalPathResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+
+  useEffect(() => {
+    const validation = validateDependencies(tasks as TaskV2[]);
+    setValidationResult(validation);
+
+    if (validation.isValid) {
+      const result = calculateCriticalPath(tasks as TaskV2[]);
+      setCriticalPathResult(result);
+    } else {
+      setCriticalPathResult(null);
+    }
+  }, [tasks]);
+
+  const criticalPath = criticalPathResult?.path || [];
+
+  // Sync with parent's selected task
+  useEffect(() => {
+    if (selectedTaskId) {
+      const node = graphNodes.find(n => n.id === selectedTaskId);
+      if (node) setSelectedTask(node);
+    }
+  }, [selectedTaskId, graphNodes]);
+
+  // Handle focus (scroll to task)
+  useEffect(() => {
+    if (focusedTaskId) {
+      const node = graphNodes.find(n => n.id === focusedTaskId);
+      if (node) {
+        setSelectedTask(node);
+        scrollToNode(focusedTaskId);
+      }
+    }
+  }, [focusedTaskId, graphNodes]);
+
+  const handleSelectTask = (task: GraphNode) => {
+    setSelectedTask(task);
+    onSelectTask?.(task.id);
+  };
+
+  function scrollToNode(taskId: string) {
+    const element = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (element) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center'
+      });
+    }
+  }
 
   return (
     <div className="flex flex-col h-full bg-bg-0">
@@ -149,6 +219,21 @@ export function DependenciesPanel() {
         </div>
       </div>
 
+      {/* Validation Banners */}
+      {validationResult && !validationResult.isValid && (
+        <ValidationBanner
+          errors={validationResult.errors}
+          onDismiss={() => setValidationResult(null)}
+        />
+      )}
+
+      {validationResult && validationResult.warnings.length > 0 && (
+        <WarningBanner
+          warnings={validationResult.warnings}
+          onDismiss={() => setValidationResult({ ...validationResult, warnings: [] })}
+        />
+      )}
+
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Graph area */}
@@ -157,7 +242,8 @@ export function DependenciesPanel() {
             <DependencyGraph
               nodes={graphNodes}
               selectedTask={selectedTask}
-              onSelectTask={setSelectedTask}
+              focusedTaskId={focusedTaskId}
+              onSelectTask={handleSelectTask}
               zoom={zoom}
               criticalPath={criticalPath}
             />
@@ -166,14 +252,14 @@ export function DependenciesPanel() {
             <DependencyList
               tasks={tasks}
               selectedTask={selectedTask}
-              onSelectTask={(task) => setSelectedTask(graphNodes.find(n => n.id === task.id) || null)}
+              onSelectTask={(task) => handleSelectTask(graphNodes.find(n => n.id === task.id) || selectedTask!)}
             />
           )}
           {viewMode === 'timeline' && (
             <DependencyTimeline
               nodes={graphNodes}
               selectedTask={selectedTask}
-              onSelectTask={setSelectedTask}
+              onSelectTask={handleSelectTask}
             />
           )}
         </div>
@@ -183,6 +269,8 @@ export function DependenciesPanel() {
           task={selectedTask}
           allTasks={tasks}
           criticalPath={criticalPath}
+          onNavigateToPipeline={onNavigateToPipeline}
+          onNavigateToDiff={onNavigateToDiff}
         />
       </div>
     </div>
@@ -192,12 +280,14 @@ export function DependenciesPanel() {
 function DependencyGraph({
   nodes,
   selectedTask,
+  focusedTaskId,
   onSelectTask,
   zoom,
   criticalPath,
 }: {
   nodes: GraphNode[];
   selectedTask: GraphNode | null;
+  focusedTaskId?: string | null;
   onSelectTask: (task: GraphNode) => void;
   zoom: number;
   criticalPath: string[];
@@ -277,6 +367,7 @@ function DependencyGraph({
           key={node.id}
           node={node}
           isSelected={selectedTask?.id === node.id}
+          isFocused={focusedTaskId === node.id}
           isCritical={criticalPath.includes(node.id)}
           onClick={() => onSelectTask(node)}
         />
@@ -315,11 +406,13 @@ function DependencyGraph({
 function GraphNodeCard({
   node,
   isSelected,
+  isFocused,
   isCritical,
   onClick,
 }: {
   node: GraphNode;
   isSelected: boolean;
+  isFocused?: boolean;
   isCritical: boolean;
   onClick: () => void;
 }) {
@@ -341,12 +434,14 @@ function GraphNodeCard({
   return (
     <button
       onClick={onClick}
+      data-task-id={node.id}
       className={clsx(
         'absolute w-[140px] p-3 rounded-lg border text-left transition-all hover:-translate-y-0.5',
         style.bg,
         isSelected
           ? 'border-accent-blue shadow-[0_0_0_2px_rgba(88,166,255,0.3)]'
           : style.border,
+        isFocused && 'animate-pulse ring-4 ring-accent-cyan/50',
         isCritical && !isSelected && 'shadow-[0_0_10px_rgba(248,81,73,0.2)]',
         node.status === 'in-progress' && 'shadow-[0_0_15px_rgba(88,166,255,0.15)]'
       )}
@@ -598,10 +693,14 @@ function TaskDetailSidebar({
   task,
   allTasks,
   criticalPath,
+  onNavigateToPipeline,
+  onNavigateToDiff,
 }: {
   task: GraphNode | null;
   allTasks: (Task | TaskV2)[];
   criticalPath: string[];
+  onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToDiff?: (taskId: string, commitSha?: string) => void;
 }) {
   if (!task) {
     return (
@@ -809,13 +908,26 @@ function TaskDetailSidebar({
       {/* Actions */}
       <div className="p-4 border-t border-border-1 shrink-0">
         <div className="flex gap-2">
-          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium bg-bg-2 border border-border-1 rounded hover:bg-bg-3 transition-colors">
-            <GitBranch className="w-3.5 h-3.5" />
-            View Worktree
-          </button>
-          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium bg-accent-blue text-white rounded hover:brightness-110 transition-all">
-            Open in Diff
-          </button>
+          {onNavigateToPipeline && (
+            <button
+              onClick={() => onNavigateToPipeline(task.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium bg-bg-2 border border-border-1 rounded hover:bg-bg-3 transition-colors"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              View Pipeline
+            </button>
+          )}
+          {onNavigateToDiff && task.taskV2 && task.taskV2.commits.length > 0 && (
+            <button
+              onClick={() => {
+                const latestCommit = task.taskV2!.commits[0];
+                onNavigateToDiff(task.id, latestCommit.sha);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium bg-accent-blue text-white rounded hover:brightness-110 transition-all"
+            >
+              Open in Diff
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -844,4 +956,81 @@ function StatusDot({ status }: { status: string }) {
     blocked: 'bg-accent-red',
   };
   return <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0', colors[status] || 'bg-text-3')} />;
+}
+
+function ValidationBanner({ errors, onDismiss }: {
+  errors: { cycle: string[]; message: string }[];
+  onDismiss: () => void;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  return (
+    <div className="mx-5 mt-4 bg-accent-red/10 border border-accent-red/30 rounded-lg p-4">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-accent-red text-sm font-semibold mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            Circular Dependencies Detected
+          </div>
+          <div className="space-y-2">
+            {errors.map((error, i) => (
+              <div key={i} className="text-xs text-text-2">
+                <span className="font-mono bg-bg-2 px-2 py-1 rounded">
+                  {error.cycle.join(' → ')}
+                </span>
+                <p className="mt-1 text-text-3">{error.message}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-text-3 mt-3">
+            Cannot calculate critical path until circular dependencies are resolved.
+          </p>
+        </div>
+        <button
+          onClick={() => { setDismissed(true); onDismiss(); }}
+          className="text-text-3 hover:text-text-1"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WarningBanner({ warnings, onDismiss }: {
+  warnings: string[];
+  onDismiss: () => void;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  return (
+    <div className="mx-5 mt-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg p-3">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-accent-amber text-xs font-semibold mb-1.5">
+            <AlertCircle className="w-4 h-4" />
+            Dependency Warnings ({warnings.length})
+          </div>
+          <div className="space-y-1">
+            {warnings.slice(0, 3).map((warning, i) => (
+              <div key={i} className="text-[11px] text-text-3">{warning}</div>
+            ))}
+            {warnings.length > 3 && (
+              <div className="text-[11px] text-text-3 italic">
+                ...and {warnings.length - 3} more warnings
+              </div>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => { setDismissed(true); onDismiss(); }}
+          className="text-text-3 hover:text-text-1"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
 }

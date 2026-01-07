@@ -21,6 +21,7 @@ function App() {
   // Task-centric state
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(tasks[0]?.id || null);
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null);
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
 
   // Navigation helpers
   const navigateToDiff = useCallback((taskId: string, commitSha?: string) => {
@@ -35,6 +36,15 @@ function App() {
     setActiveTab('worktree'); // Navigate to pipelines tab
   }, []);
 
+  const navigateToDependencies = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+    setFocusedTaskId(taskId);
+    setActiveTab('deps');
+
+    // Clear focus after animation completes
+    setTimeout(() => setFocusedTaskId(null), 3000);
+  }, []);
+
   const renderPanel = () => {
     switch (activeTab) {
       case 'overview':
@@ -43,6 +53,7 @@ function App() {
             selectedWorktreeId={selectedWorktreeId}
             onSelectWorktree={setSelectedWorktreeId}
             onNavigateToPipeline={navigateToPipeline}
+            onNavigateToDependencies={navigateToDependencies}
           />
         );
       case 'worktree':
@@ -67,7 +78,15 @@ function App() {
       case 'config':
         return <ConfigPanel />;
       case 'deps':
-        return <DependenciesPanel />;
+        return (
+          <DependenciesPanel
+            selectedTaskId={selectedTaskId}
+            focusedTaskId={focusedTaskId}
+            onSelectTask={setSelectedTaskId}
+            onNavigateToDiff={navigateToDiff}
+            onNavigateToPipeline={navigateToPipeline}
+          />
+        );
       default:
         return null;
     }

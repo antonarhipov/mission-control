@@ -1,0 +1,1733 @@
+import type {
+  Repository,
+  Project,
+  TaskV2,
+  TaskCommit,
+  TaskFileChange,
+  Team,
+  Agent,
+  AgentCost,
+  Budget,
+  ModelPricing,
+  AgentConfig,
+  FileDiff,
+} from '@/types';
+
+// =============================================================================
+// REPOSITORIES - Connected codebases
+// =============================================================================
+
+export const repositories: Repository[] = [
+  {
+    id: 'repo-api-gateway',
+    name: 'api-gateway',
+    path: '/workspace/api-gateway',
+    remoteUrl: 'github.com/acme/api-gateway',
+    defaultBranch: 'main',
+    status: 'connected',
+    lastSynced: '2 minutes ago',
+  },
+  {
+    id: 'repo-order-service',
+    name: 'order-service',
+    path: '/workspace/order-service',
+    remoteUrl: 'github.com/acme/order-service',
+    defaultBranch: 'main',
+    status: 'connected',
+    lastSynced: '5 minutes ago',
+  },
+  {
+    id: 'repo-frontend',
+    name: 'frontend',
+    path: '/workspace/frontend',
+    remoteUrl: 'github.com/acme/frontend',
+    defaultBranch: 'main',
+    status: 'connected',
+    lastSynced: '3 minutes ago',
+  },
+  {
+    id: 'repo-shared-types',
+    name: 'shared-types',
+    path: '/workspace/shared-types',
+    remoteUrl: 'github.com/acme/shared-types',
+    defaultBranch: 'main',
+    status: 'connected',
+    lastSynced: '10 minutes ago',
+  },
+];
+
+// =============================================================================
+// TEAMS - Reuse from v1 mockData
+// =============================================================================
+
+export const teams: Team[] = [
+  {
+    id: 'team-backend',
+    name: 'Backend Squad',
+    description: 'Full-stack team for backend service development',
+    color: '#388bfd',
+    agentIds: ['impl-1', 'arch-1', 'test-1', 'rev-1'],
+  },
+  {
+    id: 'team-docs',
+    name: 'Documentation',
+    description: 'API documentation and technical writing',
+    color: '#39d353',
+    agentIds: ['docs-1'],
+  },
+  {
+    id: 'team-infra',
+    name: 'Infrastructure',
+    description: 'Database, migrations, and DevOps',
+    color: '#9e6a03',
+    agentIds: ['impl-1', 'rev-1', 'test-1'],
+  },
+];
+
+// =============================================================================
+// AGENTS - Reuse from v1 mockData
+// =============================================================================
+
+export const agents: Agent[] = [
+  {
+    id: 'impl-1',
+    name: 'Implementer',
+    role: 'implementer',
+    status: 'running',
+    currentTask: 'Writing OrderService.java',
+    emoji: '⚡',
+    color: '#388bfd',
+    teamId: 'team-backend',
+  },
+  {
+    id: 'arch-1',
+    name: 'Architect',
+    role: 'architect',
+    status: 'thinking',
+    currentTask: 'Reviewing API design',
+    emoji: '🏗️',
+    color: '#8957e5',
+    teamId: 'team-backend',
+  },
+  {
+    id: 'test-1',
+    name: 'Tester',
+    role: 'tester',
+    status: 'waiting',
+    currentTask: 'Awaiting implementation',
+    emoji: '🧪',
+    color: '#238636',
+    teamId: 'team-backend',
+  },
+  {
+    id: 'rev-1',
+    name: 'Reviewer',
+    role: 'reviewer',
+    status: 'running',
+    currentTask: 'Reviewing migration scripts',
+    emoji: '👁️',
+    color: '#9e6a03',
+    teamId: 'team-backend',
+  },
+  {
+    id: 'docs-1',
+    name: 'Doc Writer',
+    role: 'docs',
+    status: 'idle',
+    emoji: '📝',
+    color: '#39d353',
+    teamId: 'team-docs',
+  },
+];
+
+// =============================================================================
+// TASKS V2 - THE CENTRAL ENTITY
+// =============================================================================
+
+export const tasksV2: TaskV2[] = [
+  // Task 1: Single-repo task (order-service)
+  {
+    id: 'ORD-142',
+    title: 'Implement Order entity with JPA mappings and audit fields',
+    description: 'Create the Order aggregate root with proper JPA annotations, audit fields, and relationship mappings to Customer and LineItem entities.',
+    status: 'in-progress',
+    priority: 'high',
+    tags: ['feature', 'backend'],
+
+    teamId: 'team-backend',
+    agents: [
+      {
+        agentId: 'impl-1',
+        role: 'primary',
+        stage: 'Implementation',
+        isActive: true,
+        contribution: {
+          commits: 5,
+          filesChanged: 12,
+          linesAdded: 847,
+          linesRemoved: 123,
+          cost: 3.42,
+        },
+      },
+      {
+        agentId: 'arch-1',
+        role: 'supporting',
+        stage: 'Design Review',
+        isActive: true,
+        contribution: {
+          commits: 2,
+          filesChanged: 3,
+          linesAdded: 45,
+          linesRemoved: 12,
+          cost: 1.24,
+        },
+      },
+      {
+        agentId: 'test-1',
+        role: 'waiting',
+        stage: 'Testing',
+        isActive: false,
+        contribution: {
+          commits: 0,
+          filesChanged: 0,
+          linesAdded: 0,
+          linesRemoved: 0,
+          cost: 0,
+        },
+      },
+    ],
+
+    pipeline: [
+      { id: 'design', name: 'Design', status: 'completed', agentId: 'arch-1', completedAt: '2 hours ago', cost: 0.89 },
+      { id: 'impl', name: 'Implementation', status: 'active', agentId: 'impl-1', startedAt: '1 hour ago', cost: 2.53 },
+      { id: 'test', name: 'Testing', status: 'pending', agentId: 'test-1', cost: 0 },
+      { id: 'review', name: 'Code Review', status: 'pending', agentId: 'rev-1', cost: 0 },
+    ],
+    currentStage: 'Implementation',
+
+    progress: 65,
+    totalCost: 4.66,
+
+    worktrees: [
+      {
+        id: 'wt-order-service',
+        repositoryId: 'repo-order-service',
+        branch: 'feature/order-service',
+        baseBranch: 'main',
+        path: '/worktrees/order-service',
+        status: 'active',
+        fileChanges: [],
+        commits: [],
+        createdAt: '2 hours ago',
+        updatedAt: '12 min ago',
+      },
+    ],
+
+    commits: [
+      {
+        id: 'commit-1',
+        sha: 'a3f7b2c',
+        message: 'feat(orders): add OrderService with transaction support',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        filesChanged: 3,
+        additions: 127,
+        deletions: 23,
+        cost: { inputTokens: 48000, outputTokens: 6200, toolCalls: 12, totalCost: 0.53 },
+        fileIds: ['file-1', 'file-2', 'file-3'],
+        timestamp: '12 min ago',
+      },
+      {
+        id: 'commit-2',
+        sha: '8e4d1a9',
+        message: 'feat(entity): implement Order entity with JPA annotations',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        filesChanged: 2,
+        additions: 156,
+        deletions: 0,
+        cost: { inputTokens: 52000, outputTokens: 8000, toolCalls: 15, totalCost: 0.68 },
+        fileIds: ['file-4', 'file-5'],
+        timestamp: '24 min ago',
+      },
+      {
+        id: 'commit-3',
+        sha: 'b1c3d4e',
+        message: 'feat(dto): add request/response DTOs for Order API',
+        author: 'Architect',
+        authorType: 'agent',
+        agentId: 'arch-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        filesChanged: 2,
+        additions: 83,
+        deletions: 0,
+        cost: { inputTokens: 28000, outputTokens: 4500, toolCalls: 8, totalCost: 0.38 },
+        fileIds: ['file-6', 'file-7'],
+        timestamp: '35 min ago',
+      },
+    ],
+
+    fileChanges: [
+      {
+        id: 'file-1',
+        path: 'src/main/java/com/acme/orders/service/',
+        filename: 'OrderService.java',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        changeType: 'modified',
+        additions: 127,
+        deletions: 23,
+        agentId: 'impl-1',
+        commitShas: ['a3f7b2c'],
+      },
+      {
+        id: 'file-2',
+        path: 'src/main/java/com/acme/orders/entity/',
+        filename: 'Order.java',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        changeType: 'added',
+        additions: 89,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['8e4d1a9'],
+      },
+      {
+        id: 'file-3',
+        path: 'src/main/java/com/acme/orders/entity/',
+        filename: 'OrderLineItem.java',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-order-service',
+        changeType: 'added',
+        additions: 67,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['8e4d1a9'],
+      },
+    ],
+
+    dependsOn: ['ORD-138', 'ORD-139'],
+    blocks: ['ORD-145', 'ORD-146'],
+
+    createdAt: '2 hours ago',
+    startedAt: '2 hours ago',
+  },
+
+  // Task 2: Multi-repo task (api-gateway + frontend + shared-types)
+  {
+    id: 'AUTH-101',
+    title: 'Implement user authentication',
+    description: 'Add JWT-based authentication system across api-gateway, frontend, and shared type definitions.',
+    status: 'in-progress',
+    priority: 'critical',
+    tags: ['feature', 'security', 'api'],
+
+    teamId: 'team-backend',
+    agents: [
+      {
+        agentId: 'impl-1',
+        role: 'primary',
+        stage: 'Implementation',
+        isActive: true,
+        contribution: {
+          commits: 6,
+          filesChanged: 8,
+          linesAdded: 423,
+          linesRemoved: 45,
+          cost: 2.87,
+        },
+      },
+      {
+        agentId: 'arch-1',
+        role: 'supporting',
+        stage: 'Design',
+        isActive: false,
+        contribution: {
+          commits: 2,
+          filesChanged: 3,
+          linesAdded: 120,
+          linesRemoved: 0,
+          cost: 0.92,
+        },
+      },
+    ],
+
+    pipeline: [
+      { id: 'design', name: 'Design', status: 'completed', agentId: 'arch-1', completedAt: '1 hour ago', cost: 0.92 },
+      { id: 'impl', name: 'Implementation', status: 'active', agentId: 'impl-1', startedAt: '45 min ago', cost: 2.12 },
+      { id: 'test', name: 'Testing', status: 'pending', agentId: 'test-1', cost: 0 },
+    ],
+    currentStage: 'Implementation',
+
+    progress: 45,
+    totalCost: 3.79,
+
+    worktrees: [
+      {
+        id: 'wt-auth-api',
+        repositoryId: 'repo-api-gateway',
+        branch: 'feature/auth',
+        baseBranch: 'main',
+        path: '/worktrees/auth-api',
+        status: 'active',
+        fileChanges: [],
+        commits: [],
+        createdAt: '1 hour ago',
+        updatedAt: '15 min ago',
+      },
+      {
+        id: 'wt-auth-frontend',
+        repositoryId: 'repo-frontend',
+        branch: 'feature/auth',
+        baseBranch: 'main',
+        path: '/worktrees/auth-frontend',
+        status: 'active',
+        fileChanges: [],
+        commits: [],
+        createdAt: '1 hour ago',
+        updatedAt: '18 min ago',
+      },
+      {
+        id: 'wt-auth-types',
+        repositoryId: 'repo-shared-types',
+        branch: 'feature/auth-types',
+        baseBranch: 'main',
+        path: '/worktrees/auth-types',
+        status: 'active',
+        fileChanges: [],
+        commits: [],
+        createdAt: '1 hour ago',
+        updatedAt: '30 min ago',
+      },
+    ],
+
+    commits: [
+      {
+        id: 'commit-auth-1',
+        sha: 'f4a5b6c',
+        message: 'feat(types): add auth types and interfaces',
+        author: 'Architect',
+        authorType: 'agent',
+        agentId: 'arch-1',
+        repositoryId: 'repo-shared-types',
+        worktreeId: 'wt-auth-types',
+        filesChanged: 2,
+        additions: 77,
+        deletions: 0,
+        cost: { inputTokens: 31000, outputTokens: 4200, toolCalls: 6, totalCost: 0.42 },
+        fileIds: ['file-auth-1', 'file-auth-2'],
+        timestamp: '50 min ago',
+      },
+      {
+        id: 'commit-auth-2',
+        sha: 'a7f8c9d',
+        message: 'feat(api): add JWT filter and security config',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-api-gateway',
+        worktreeId: 'wt-auth-api',
+        filesChanged: 3,
+        additions: 178,
+        deletions: 8,
+        cost: { inputTokens: 56000, outputTokens: 7800, toolCalls: 18, totalCost: 0.74 },
+        fileIds: ['file-auth-3', 'file-auth-4', 'file-auth-5'],
+        timestamp: '35 min ago',
+      },
+      {
+        id: 'commit-auth-3',
+        sha: 'e3f4a5b',
+        message: 'feat(frontend): add login form and auth hook',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-frontend',
+        worktreeId: 'wt-auth-frontend',
+        filesChanged: 3,
+        additions: 168,
+        deletions: 37,
+        cost: { inputTokens: 48000, outputTokens: 6500, toolCalls: 14, totalCost: 0.63 },
+        fileIds: ['file-auth-6', 'file-auth-7', 'file-auth-8'],
+        timestamp: '18 min ago',
+      },
+    ],
+
+    fileChanges: [
+      {
+        id: 'file-auth-1',
+        path: 'src/types/',
+        filename: 'auth.ts',
+        repositoryId: 'repo-shared-types',
+        worktreeId: 'wt-auth-types',
+        changeType: 'added',
+        additions: 45,
+        deletions: 0,
+        agentId: 'arch-1',
+        commitShas: ['f4a5b6c'],
+      },
+      {
+        id: 'file-auth-2',
+        path: 'src/types/',
+        filename: 'user.ts',
+        repositoryId: 'repo-shared-types',
+        worktreeId: 'wt-auth-types',
+        changeType: 'added',
+        additions: 32,
+        deletions: 0,
+        agentId: 'arch-1',
+        commitShas: ['f4a5b6c'],
+      },
+      {
+        id: 'file-auth-3',
+        path: 'src/main/java/com/acme/gateway/security/',
+        filename: 'JwtFilter.java',
+        repositoryId: 'repo-api-gateway',
+        worktreeId: 'wt-auth-api',
+        changeType: 'added',
+        additions: 98,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['a7f8c9d'],
+      },
+      {
+        id: 'file-auth-6',
+        path: 'src/components/auth/',
+        filename: 'LoginForm.tsx',
+        repositoryId: 'repo-frontend',
+        worktreeId: 'wt-auth-frontend',
+        changeType: 'added',
+        additions: 120,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['e3f4a5b'],
+      },
+      {
+        id: 'file-auth-7',
+        path: 'src/hooks/',
+        filename: 'useAuth.ts',
+        repositoryId: 'repo-frontend',
+        worktreeId: 'wt-auth-frontend',
+        changeType: 'added',
+        additions: 48,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['e3f4a5b'],
+      },
+    ],
+
+    dependsOn: [],
+    blocks: [],
+
+    createdAt: '1.5 hours ago',
+    startedAt: '1 hour ago',
+  },
+
+  // Task 3: Single-repo task (order-service) - in review
+  {
+    id: 'ORD-140',
+    title: 'Review Flyway migration scripts for orders schema',
+    description: 'Code review of V2 migration script for orders and line_items tables.',
+    status: 'review',
+    priority: 'medium',
+    tags: ['database', 'review'],
+
+    teamId: 'team-infra',
+    agents: [
+      {
+        agentId: 'impl-1',
+        role: 'completed',
+        stage: 'Implementation',
+        isActive: false,
+        contribution: {
+          commits: 2,
+          filesChanged: 2,
+          linesAdded: 67,
+          linesRemoved: 0,
+          cost: 0.89,
+        },
+      },
+      {
+        agentId: 'rev-1',
+        role: 'primary',
+        stage: 'Code Review',
+        isActive: true,
+        contribution: {
+          commits: 0,
+          filesChanged: 0,
+          linesAdded: 0,
+          linesRemoved: 0,
+          cost: 0.42,
+        },
+      },
+    ],
+
+    pipeline: [
+      { id: 'impl', name: 'Implementation', status: 'completed', agentId: 'impl-1', completedAt: '1 hour ago', cost: 0.89 },
+      { id: 'review', name: 'Code Review', status: 'active', agentId: 'rev-1', startedAt: '45 min ago', cost: 0.42 },
+      { id: 'test', name: 'Migration Test', status: 'pending', agentId: 'test-1', cost: 0 },
+    ],
+    currentStage: 'Code Review',
+
+    progress: 70,
+    totalCost: 1.31,
+
+    worktrees: [
+      {
+        id: 'wt-db-migration',
+        repositoryId: 'repo-order-service',
+        branch: 'feature/db-migration-v2',
+        baseBranch: 'main',
+        path: '/worktrees/db-migration',
+        status: 'active',
+        fileChanges: [],
+        commits: [],
+        createdAt: '1.5 hours ago',
+        updatedAt: '10 min ago',
+      },
+    ],
+
+    commits: [
+      {
+        id: 'commit-db-1',
+        sha: 'f6a7b8c',
+        message: 'feat(db): add V2 migration for orders and line_items tables',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-db-migration',
+        filesChanged: 1,
+        additions: 45,
+        deletions: 0,
+        cost: { inputTokens: 22000, outputTokens: 3200, toolCalls: 6, totalCost: 0.29 },
+        fileIds: ['file-db-1'],
+        timestamp: '1 hour ago',
+      },
+      {
+        id: 'commit-db-2',
+        sha: 'a7b8c9d',
+        message: 'feat(db): add V3 migration for performance indexes',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-db-migration',
+        filesChanged: 1,
+        additions: 22,
+        deletions: 0,
+        cost: { inputTokens: 18000, outputTokens: 2500, toolCalls: 4, totalCost: 0.23 },
+        fileIds: ['file-db-2'],
+        timestamp: '55 min ago',
+      },
+    ],
+
+    fileChanges: [
+      {
+        id: 'file-db-1',
+        path: 'src/main/resources/db/migration/',
+        filename: 'V2__add_orders_table.sql',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-db-migration',
+        changeType: 'added',
+        additions: 45,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['f6a7b8c'],
+      },
+      {
+        id: 'file-db-2',
+        path: 'src/main/resources/db/migration/',
+        filename: 'V3__add_orders_indexes.sql',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-db-migration',
+        changeType: 'added',
+        additions: 22,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['a7b8c9d'],
+      },
+    ],
+
+    dependsOn: [],
+    blocks: [],
+
+    createdAt: '1.5 hours ago',
+    startedAt: '1.5 hours ago',
+  },
+
+  // Task 4: Done task (for "Done" column)
+  {
+    id: 'ORD-138',
+    title: 'Set up Spring Data JPA repositories for Order aggregate',
+    description: 'Create OrderRepository interface extending JpaRepository with custom query methods.',
+    status: 'done',
+    priority: 'medium',
+    tags: ['feature', 'backend'],
+
+    teamId: 'team-backend',
+    agents: [
+      {
+        agentId: 'impl-1',
+        role: 'completed',
+        stage: 'Implementation',
+        isActive: false,
+        contribution: {
+          commits: 2,
+          filesChanged: 3,
+          linesAdded: 123,
+          linesRemoved: 12,
+          cost: 1.42,
+        },
+      },
+    ],
+
+    pipeline: [
+      { id: 'design', name: 'Design', status: 'completed', agentId: 'arch-1', completedAt: '3 hours ago', cost: 0.45 },
+      { id: 'impl', name: 'Implementation', status: 'completed', agentId: 'impl-1', completedAt: '2 hours ago', cost: 0.97 },
+      { id: 'test', name: 'Testing', status: 'completed', agentId: 'test-1', completedAt: '1.5 hours ago', cost: 0.58 },
+      { id: 'review', name: 'Code Review', status: 'completed', agentId: 'rev-1', completedAt: '1 hour ago', cost: 0.32 },
+    ],
+    currentStage: 'Completed',
+
+    progress: 100,
+    totalCost: 2.32,
+
+    worktrees: [
+      {
+        id: 'wt-repository-setup',
+        repositoryId: 'repo-order-service',
+        branch: 'feature/repository-setup',
+        baseBranch: 'main',
+        path: '/worktrees/repository-setup',
+        status: 'merged',
+        fileChanges: [],
+        commits: [],
+        createdAt: '3 hours ago',
+        updatedAt: '1 hour ago',
+      },
+    ],
+
+    commits: [
+      {
+        id: 'commit-repo-1',
+        sha: 'f9a3b1c',
+        message: 'feat(repo): add OrderRepository with custom queries',
+        author: 'Implementer',
+        authorType: 'agent',
+        agentId: 'impl-1',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-repository-setup',
+        filesChanged: 2,
+        additions: 89,
+        deletions: 0,
+        cost: { inputTokens: 35000, outputTokens: 4800, toolCalls: 10, totalCost: 0.48 },
+        fileIds: ['file-repo-1', 'file-repo-2'],
+        timestamp: '2.5 hours ago',
+      },
+    ],
+
+    fileChanges: [
+      {
+        id: 'file-repo-1',
+        path: 'src/main/java/com/acme/orders/repository/',
+        filename: 'OrderRepository.java',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-repository-setup',
+        changeType: 'added',
+        additions: 64,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['f9a3b1c'],
+      },
+      {
+        id: 'file-repo-2',
+        path: 'src/main/java/com/acme/orders/repository/',
+        filename: 'LineItemRepository.java',
+        repositoryId: 'repo-order-service',
+        worktreeId: 'wt-repository-setup',
+        changeType: 'added',
+        additions: 25,
+        deletions: 0,
+        agentId: 'impl-1',
+        commitShas: ['f9a3b1c'],
+      },
+    ],
+
+    dependsOn: [],
+    blocks: [],
+
+    createdAt: '3 hours ago',
+    startedAt: '3 hours ago',
+    completedAt: '1 hour ago',
+  },
+
+  // Task 5: Backlog task
+  {
+    id: 'ORD-145',
+    title: 'Write repository integration tests with Testcontainers',
+    description: 'Create integration tests for OrderRepository using Testcontainers with PostgreSQL.',
+    status: 'backlog',
+    priority: 'high',
+    tags: ['testing'],
+
+    teamId: 'team-backend',
+    agents: [],
+
+    pipeline: [
+      { id: 'impl', name: 'Implementation', status: 'pending', cost: 0 },
+      { id: 'review', name: 'Code Review', status: 'pending', cost: 0 },
+    ],
+    currentStage: 'Not Started',
+
+    progress: 0,
+    totalCost: 0,
+
+    worktrees: [],
+    commits: [],
+    fileChanges: [],
+
+    dependsOn: ['ORD-142'],
+    blocks: [],
+
+    createdAt: '1 day ago',
+  },
+];
+
+// =============================================================================
+// COST & BUDGET DATA
+// =============================================================================
+
+export const agentCosts: AgentCost[] = [
+  {
+    agentId: 'impl-1',
+    inputTokens: 1140000,
+    outputTokens: 126000,
+    toolCalls: 45,
+    inputCost: 3.42,
+    outputCost: 1.89,
+    toolCost: 0.12,
+    totalCost: 5.43,
+    efficiency: 'excellent',
+  },
+  {
+    agentId: 'arch-1',
+    inputTokens: 726667,
+    outputTokens: 82667,
+    toolCalls: 30,
+    inputCost: 2.18,
+    outputCost: 1.24,
+    toolCost: 0.08,
+    totalCost: 3.5,
+    efficiency: 'good',
+  },
+  {
+    agentId: 'test-1',
+    inputTokens: 350000,
+    outputTokens: 61333,
+    toolCalls: 128,
+    inputCost: 1.05,
+    outputCost: 0.92,
+    toolCost: 0.34,
+    totalCost: 2.31,
+    efficiency: 'fair',
+  },
+  {
+    agentId: 'rev-1',
+    inputTokens: 140000,
+    outputTokens: 18667,
+    toolCalls: 8,
+    inputCost: 0.42,
+    outputCost: 0.28,
+    toolCost: 0.02,
+    totalCost: 0.72,
+    efficiency: 'excellent',
+  },
+  {
+    agentId: 'docs-1',
+    inputTokens: 106667,
+    outputTokens: 10000,
+    toolCalls: 15,
+    inputCost: 0.32,
+    outputCost: 0.15,
+    toolCost: 0.04,
+    totalCost: 0.51,
+    efficiency: 'excellent',
+  },
+];
+
+export const budgets: Budget[] = [
+  { name: 'Daily Budget', current: 12.47, limit: 50, resetIn: '8h' },
+  { name: 'Session Budget', current: 7.15, limit: 25 },
+  { name: 'Monthly Budget', current: 247.82, limit: 500, daysLeft: 19 },
+];
+
+export const modelPricing: ModelPricing[] = [
+  { name: 'Claude Sonnet 4', inputPer1M: 3, outputPer1M: 15, color: '#a371f7' },
+  { name: 'Claude Haiku 4', inputPer1M: 0.25, outputPer1M: 1.25, color: '#58a6ff' },
+  { name: 'Claude Opus 4', inputPer1M: 15, outputPer1M: 75, color: '#d29922' },
+];
+
+export const defaultAgentConfig: AgentConfig = {
+  model: 'claude-sonnet-4',
+  temperature: 0.2,
+  maxOutputTokens: 8192,
+  extendedThinking: true,
+  autonomyLevel: 'balanced',
+  autoCommit: true,
+  runTestsAfterChanges: true,
+  maxIterations: 5,
+  permissions: {
+    fileSystem: 'full',
+    terminal: 'ask',
+    git: 'allowlist',
+    web: 'allowlist',
+  },
+};
+
+export const sessionStats = {
+  totalCost: 12.07,
+  totalTokens: 2463334,
+  projectName: 'acme-commerce',
+  activeBranch: 'feature/order-service',
+  activeWorktrees: 3,
+};
+
+// =============================================================================
+// PROJECT - Top-level container
+// =============================================================================
+
+export const project: Project = {
+  id: 'proj-acme',
+  name: 'acme-commerce',
+  description: 'E-commerce platform with microservices architecture',
+  repositories,
+  teams,
+  agents,
+  budgets,
+};
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+export function getTaskByIdV2(id: string): TaskV2 | undefined {
+  return tasksV2.find(t => t.id === id);
+}
+
+export function getRepositoryById(id: string): Repository | undefined {
+  return repositories.find(r => r.id === id);
+}
+
+export function getTaskByWorktreeId(wtId: string): TaskV2 | undefined {
+  return tasksV2.find(t => t.worktrees.some(w => w.id === wtId));
+}
+
+export function getAgentByIdV2(id: string): Agent | undefined {
+  return agents.find(a => a.id === id);
+}
+
+export function getTeamByIdV2(id: string): Team | undefined {
+  return teams.find(t => t.id === id);
+}
+
+export function getCommitsForTask(taskId: string): TaskCommit[] {
+  const task = getTaskByIdV2(taskId);
+  return task?.commits || [];
+}
+
+export function getFileChangesForTask(taskId: string): TaskFileChange[] {
+  const task = getTaskByIdV2(taskId);
+  return task?.fileChanges || [];
+}
+
+export function getActiveTasksV2(): TaskV2[] {
+  return tasksV2.filter(t => t.status === 'in-progress' || t.status === 'review');
+}
+
+// =============================================================================
+// VALIDATION FUNCTION
+// =============================================================================
+
+export function validateV2Data(): boolean {
+  const errors: string[] = [];
+
+  // Validate repository references
+  tasksV2.forEach(task => {
+    task.worktrees.forEach(wt => {
+      if (!repositories.find(r => r.id === wt.repositoryId)) {
+        errors.push(`Task ${task.id}: Invalid repositoryId ${wt.repositoryId} in worktree ${wt.id}`);
+      }
+    });
+
+    task.commits.forEach(commit => {
+      if (!repositories.find(r => r.id === commit.repositoryId)) {
+        errors.push(`Task ${task.id}: Invalid repositoryId ${commit.repositoryId} in commit ${commit.sha}`);
+      }
+    });
+
+    task.fileChanges.forEach(file => {
+      if (!repositories.find(r => r.id === file.repositoryId)) {
+        errors.push(`Task ${task.id}: Invalid repositoryId ${file.repositoryId} in file ${file.filename}`);
+      }
+    });
+  });
+
+  // Validate team references
+  tasksV2.forEach(task => {
+    if (!teams.find(t => t.id === task.teamId)) {
+      errors.push(`Task ${task.id}: Invalid teamId ${task.teamId}`);
+    }
+  });
+
+  // Validate agent references
+  tasksV2.forEach(task => {
+    task.agents.forEach(agent => {
+      if (!agents.find(a => a.id === agent.agentId)) {
+        errors.push(`Task ${task.id}: Invalid agentId ${agent.agentId}`);
+      }
+    });
+  });
+
+  // Validate commit fileIds
+  tasksV2.forEach(task => {
+    task.commits.forEach(commit => {
+      if (!commit.fileIds || commit.fileIds.length === 0) {
+        errors.push(`Task ${task.id}: Commit ${commit.sha} has no fileIds`);
+      } else {
+        commit.fileIds.forEach(fileId => {
+          if (!task.fileChanges.find(f => f.id === fileId)) {
+            errors.push(`Task ${task.id}: Commit ${commit.sha} references non-existent fileId ${fileId}`);
+          }
+        });
+      }
+    });
+  });
+
+  // Validate fileDiffs existence
+  tasksV2.forEach(task => {
+    task.fileChanges.forEach(file => {
+      if (!fileDiffs[file.filename]) {
+        errors.push(`Task ${task.id}: File ${file.filename} has no fileDiff data`);
+      }
+    });
+  });
+
+  // Validate fileDiffs have reasoning
+  Object.entries(fileDiffs).forEach(([filename, diff]) => {
+    if (!diff.reasoning || diff.reasoning.length === 0) {
+      errors.push(`File ${filename} has no reasoning`);
+    }
+  });
+
+  // Log results
+  if (errors.length > 0) {
+    console.error('❌ V2 Data Validation Failed:');
+    errors.forEach(error => console.error(`  - ${error}`));
+    return false;
+  }
+
+  console.log('✅ V2 Data Validation Passed');
+  console.log(`  - ${repositories.length} repositories`);
+  console.log(`  - ${tasksV2.length} tasks`);
+  console.log(`  - ${teams.length} teams`);
+  console.log(`  - ${agents.length} agents`);
+  console.log(`  - ${Object.keys(fileDiffs).length} file diffs with reasoning`);
+
+  return true;
+}
+
+// =============================================================================
+// FILE DIFFS - Diff content for all file changes
+// =============================================================================
+
+export const fileDiffs: Record<string, FileDiff> = {
+  'OrderService.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/orders/service/',
+      filename: 'OrderService.java',
+      changeType: 'modified',
+      additions: 127,
+      deletions: 23,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -23,6 +23,42 @@',
+        context: 'class OrderService',
+        lines: [
+          { lineNumber: 23, type: 'context', content: '@Service' },
+          { lineNumber: 24, type: 'context', content: '@Transactional' },
+          { lineNumber: 25, type: 'context', content: 'public class OrderService {' },
+          { lineNumber: 26, type: 'context', content: '' },
+          { lineNumber: 27, type: 'add', content: '    private final OrderRepository orderRepository;' },
+          { lineNumber: 28, type: 'add', content: '    private final CustomerRepository customerRepository;' },
+          { lineNumber: 29, type: 'add', content: '    private final InventoryService inventoryService;' },
+          { lineNumber: 30, type: 'add', content: '    private final ApplicationEventPublisher eventPublisher;' },
+          { lineNumber: 31, type: 'add', content: '' },
+          { lineNumber: 32, type: 'add', content: '    public OrderService(' },
+          { lineNumber: 33, type: 'add', content: '            OrderRepository orderRepository,' },
+          { lineNumber: 34, type: 'add', content: '            CustomerRepository customerRepository,' },
+          { lineNumber: 35, type: 'add', content: '            InventoryService inventoryService,' },
+          { lineNumber: 36, type: 'add', content: '            ApplicationEventPublisher eventPublisher) {' },
+          { lineNumber: 37, type: 'add', content: '        this.orderRepository = orderRepository;' },
+          { lineNumber: 38, type: 'add', content: '        this.customerRepository = customerRepository;' },
+          { lineNumber: 39, type: 'add', content: '        this.inventoryService = inventoryService;' },
+          { lineNumber: 40, type: 'add', content: '        this.eventPublisher = eventPublisher;' },
+          { lineNumber: 41, type: 'add', content: '    }' },
+          { lineNumber: 42, type: 'context', content: '' },
+          { lineNumber: 43, type: 'del', content: '    @Autowired' },
+          { lineNumber: 44, type: 'del', content: '    private OrderRepository orderRepository;' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Use constructor injection over field injection',
+        description: 'Constructor injection makes dependencies explicit and immutable, enables easier testing with mocks, and allows the class to be instantiated without Spring context.',
+        rejected: {
+          title: 'Using @Autowired on fields',
+          reason: 'Field injection hides dependencies, makes testing harder, and allows partial initialization of objects.',
+        },
+      },
+      {
+        type: 'rationale',
+        title: 'Domain event for order creation',
+        description: 'Publishing domain events via ApplicationEventPublisher decouples the order service from downstream processes like inventory reservation and notification sending.',
+      },
+    ],
+  },
+
+  'Order.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/orders/entity/',
+      filename: 'Order.java',
+      changeType: 'added',
+      additions: 89,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,89 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'package com.acme.orders.entity;' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'import lombok.*;' },
+          { lineNumber: 4, type: 'add', content: 'import javax.persistence.*;' },
+          { lineNumber: 5, type: 'add', content: 'import java.math.BigDecimal;' },
+          { lineNumber: 6, type: 'add', content: 'import java.time.Instant;' },
+          { lineNumber: 7, type: 'add', content: 'import java.util.ArrayList;' },
+          { lineNumber: 8, type: 'add', content: 'import java.util.List;' },
+          { lineNumber: 9, type: 'add', content: '' },
+          { lineNumber: 10, type: 'add', content: '@Entity' },
+          { lineNumber: 11, type: 'add', content: '@Table(name = "orders")' },
+          { lineNumber: 12, type: 'add', content: '@Data' },
+          { lineNumber: 13, type: 'add', content: '@Builder' },
+          { lineNumber: 14, type: 'add', content: '@NoArgsConstructor' },
+          { lineNumber: 15, type: 'add', content: '@AllArgsConstructor' },
+          { lineNumber: 16, type: 'add', content: 'public class Order {' },
+          { lineNumber: 17, type: 'add', content: '' },
+          { lineNumber: 18, type: 'add', content: '    @Id' },
+          { lineNumber: 19, type: 'add', content: '    @GeneratedValue(strategy = GenerationType.IDENTITY)' },
+          { lineNumber: 20, type: 'add', content: '    private Long id;' },
+          { lineNumber: 21, type: 'add', content: '' },
+          { lineNumber: 22, type: 'add', content: '    @ManyToOne(fetch = FetchType.LAZY)' },
+          { lineNumber: 23, type: 'add', content: '    @JoinColumn(name = "customer_id", nullable = false)' },
+          { lineNumber: 24, type: 'add', content: '    private Customer customer;' },
+          { lineNumber: 25, type: 'add', content: '' },
+          { lineNumber: 26, type: 'add', content: '    @Enumerated(EnumType.STRING)' },
+          { lineNumber: 27, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 28, type: 'add', content: '    private OrderStatus status;' },
+          { lineNumber: 29, type: 'add', content: '' },
+          { lineNumber: 30, type: 'add', content: '    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)' },
+          { lineNumber: 31, type: 'add', content: '    @Builder.Default' },
+          { lineNumber: 32, type: 'add', content: '    private List<OrderLineItem> lineItems = new ArrayList<>();' },
+          { lineNumber: 33, type: 'add', content: '' },
+          { lineNumber: 34, type: 'add', content: '    private BigDecimal totalAmount;' },
+          { lineNumber: 35, type: 'add', content: '' },
+          { lineNumber: 36, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 37, type: 'add', content: '    private Instant createdAt;' },
+          { lineNumber: 38, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Use LAZY fetching for Customer relation',
+        description: 'LAZY fetch prevents N+1 query problems when loading multiple orders. Customer data is only loaded when explicitly accessed, improving query performance.',
+        rejected: {
+          title: 'Use EAGER fetching',
+          reason: 'EAGER loading would fetch customer data even when not needed, causing unnecessary database queries and memory overhead.',
+        },
+      },
+      {
+        type: 'rationale',
+        title: 'Bidirectional OneToMany with cascade',
+        description: 'CascadeType.ALL on lineItems ensures that when an Order is persisted or deleted, its line items are automatically managed, maintaining referential integrity.',
+      },
+    ],
+  },
+
+  'OrderLineItem.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/orders/entity/',
+      filename: 'OrderLineItem.java',
+      changeType: 'added',
+      additions: 45,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,45 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'package com.acme.orders.entity;' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'import lombok.*;' },
+          { lineNumber: 4, type: 'add', content: 'import javax.persistence.*;' },
+          { lineNumber: 5, type: 'add', content: 'import java.math.BigDecimal;' },
+          { lineNumber: 6, type: 'add', content: '' },
+          { lineNumber: 7, type: 'add', content: '@Entity' },
+          { lineNumber: 8, type: 'add', content: '@Table(name = "order_line_items")' },
+          { lineNumber: 9, type: 'add', content: '@Data' },
+          { lineNumber: 10, type: 'add', content: '@Builder' },
+          { lineNumber: 11, type: 'add', content: '@NoArgsConstructor' },
+          { lineNumber: 12, type: 'add', content: '@AllArgsConstructor' },
+          { lineNumber: 13, type: 'add', content: 'public class OrderLineItem {' },
+          { lineNumber: 14, type: 'add', content: '' },
+          { lineNumber: 15, type: 'add', content: '    @Id' },
+          { lineNumber: 16, type: 'add', content: '    @GeneratedValue(strategy = GenerationType.IDENTITY)' },
+          { lineNumber: 17, type: 'add', content: '    private Long id;' },
+          { lineNumber: 18, type: 'add', content: '' },
+          { lineNumber: 19, type: 'add', content: '    @ManyToOne(fetch = FetchType.LAZY)' },
+          { lineNumber: 20, type: 'add', content: '    @JoinColumn(name = "order_id")' },
+          { lineNumber: 21, type: 'add', content: '    private Order order;' },
+          { lineNumber: 22, type: 'add', content: '' },
+          { lineNumber: 23, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 24, type: 'add', content: '    private String productId;' },
+          { lineNumber: 25, type: 'add', content: '' },
+          { lineNumber: 26, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 27, type: 'add', content: '    private Integer quantity;' },
+          { lineNumber: 28, type: 'add', content: '' },
+          { lineNumber: 29, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 30, type: 'add', content: '    private BigDecimal unitPrice;' },
+          { lineNumber: 31, type: 'add', content: '' },
+          { lineNumber: 32, type: 'add', content: '    @Column(nullable = false)' },
+          { lineNumber: 33, type: 'add', content: '    private BigDecimal subtotal;' },
+          { lineNumber: 34, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'rationale',
+        title: 'Separate line item entity',
+        description: 'Extracting line items into a separate entity enables querying and aggregating order items independently, supports normalized data, and allows for efficient updates to individual line items.',
+      },
+    ],
+  },
+
+  'auth.ts': {
+    fileChange: {
+      path: 'src/types/',
+      filename: 'auth.ts',
+      changeType: 'added',
+      additions: 45,
+      deletions: 0,
+      agentId: 'arch-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,45 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'export interface AuthToken {' },
+          { lineNumber: 2, type: 'add', content: '  accessToken: string;' },
+          { lineNumber: 3, type: 'add', content: '  refreshToken: string;' },
+          { lineNumber: 4, type: 'add', content: '  expiresIn: number;' },
+          { lineNumber: 5, type: 'add', content: '  tokenType: "Bearer";' },
+          { lineNumber: 6, type: 'add', content: '}' },
+          { lineNumber: 7, type: 'add', content: '' },
+          { lineNumber: 8, type: 'add', content: 'export interface AuthCredentials {' },
+          { lineNumber: 9, type: 'add', content: '  email: string;' },
+          { lineNumber: 10, type: 'add', content: '  password: string;' },
+          { lineNumber: 11, type: 'add', content: '}' },
+          { lineNumber: 12, type: 'add', content: '' },
+          { lineNumber: 13, type: 'add', content: 'export interface AuthContext {' },
+          { lineNumber: 14, type: 'add', content: '  user: User | null;' },
+          { lineNumber: 15, type: 'add', content: '  isAuthenticated: boolean;' },
+          { lineNumber: 16, type: 'add', content: '  isLoading: boolean;' },
+          { lineNumber: 17, type: 'add', content: '  login: (credentials: AuthCredentials) => Promise<void>;' },
+          { lineNumber: 18, type: 'add', content: '  logout: () => void;' },
+          { lineNumber: 19, type: 'add', content: '  refreshAuth: () => Promise<void>;' },
+          { lineNumber: 20, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Separate access and refresh tokens',
+        description: 'Using separate tokens enables short-lived access tokens for security while allowing long-lived sessions through refresh tokens. Access tokens expire quickly, limiting the window of vulnerability.',
+        rejected: {
+          title: 'Single long-lived token',
+          reason: 'Single tokens with long expiry increase security risk if compromised and make token revocation more difficult.',
+        },
+      },
+      {
+        type: 'rationale',
+        title: 'Shared auth types package',
+        description: 'Centralizing auth types in shared-types package ensures consistency across frontend, gateway, and auth service, preventing type mismatches and API contract violations.',
+      },
+    ],
+  },
+
+  'user.ts': {
+    fileChange: {
+      path: 'src/types/',
+      filename: 'user.ts',
+      changeType: 'added',
+      additions: 32,
+      deletions: 0,
+      agentId: 'arch-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,32 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'export interface User {' },
+          { lineNumber: 2, type: 'add', content: '  id: string;' },
+          { lineNumber: 3, type: 'add', content: '  email: string;' },
+          { lineNumber: 4, type: 'add', content: '  name: string;' },
+          { lineNumber: 5, type: 'add', content: '  role: UserRole;' },
+          { lineNumber: 6, type: 'add', content: '  permissions: string[];' },
+          { lineNumber: 7, type: 'add', content: '  createdAt: string;' },
+          { lineNumber: 8, type: 'add', content: '}' },
+          { lineNumber: 9, type: 'add', content: '' },
+          { lineNumber: 10, type: 'add', content: 'export enum UserRole {' },
+          { lineNumber: 11, type: 'add', content: '  ADMIN = "admin",' },
+          { lineNumber: 12, type: 'add', content: '  USER = "user",' },
+          { lineNumber: 13, type: 'add', content: '  GUEST = "guest",' },
+          { lineNumber: 14, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'rationale',
+        title: 'Role-based access control',
+        description: 'Using UserRole enum with permissions array enables flexible RBAC. Permissions provide fine-grained control while roles group common permission sets.',
+      },
+    ],
+  },
+
+  'JwtFilter.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/gateway/filter/',
+      filename: 'JwtFilter.java',
+      changeType: 'added',
+      additions: 78,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,78 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'package com.acme.gateway.filter;' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'import org.springframework.stereotype.Component;' },
+          { lineNumber: 4, type: 'add', content: 'import org.springframework.web.filter.OncePerRequestFilter;' },
+          { lineNumber: 5, type: 'add', content: '' },
+          { lineNumber: 6, type: 'add', content: '@Component' },
+          { lineNumber: 7, type: 'add', content: 'public class JwtFilter extends OncePerRequestFilter {' },
+          { lineNumber: 8, type: 'add', content: '' },
+          { lineNumber: 9, type: 'add', content: '    private final JwtTokenProvider tokenProvider;' },
+          { lineNumber: 10, type: 'add', content: '' },
+          { lineNumber: 11, type: 'add', content: '    public JwtFilter(JwtTokenProvider tokenProvider) {' },
+          { lineNumber: 12, type: 'add', content: '        this.tokenProvider = tokenProvider;' },
+          { lineNumber: 13, type: 'add', content: '    }' },
+          { lineNumber: 14, type: 'add', content: '' },
+          { lineNumber: 15, type: 'add', content: '    @Override' },
+          { lineNumber: 16, type: 'add', content: '    protected void doFilterInternal(' },
+          { lineNumber: 17, type: 'add', content: '            HttpServletRequest request,' },
+          { lineNumber: 18, type: 'add', content: '            HttpServletResponse response,' },
+          { lineNumber: 19, type: 'add', content: '            FilterChain filterChain) throws ServletException, IOException {' },
+          { lineNumber: 20, type: 'add', content: '' },
+          { lineNumber: 21, type: 'add', content: '        String token = extractToken(request);' },
+          { lineNumber: 22, type: 'add', content: '        if (token != null && tokenProvider.validateToken(token)) {' },
+          { lineNumber: 23, type: 'add', content: '            String userId = tokenProvider.getUserId(token);' },
+          { lineNumber: 24, type: 'add', content: '            request.setAttribute("userId", userId);' },
+          { lineNumber: 25, type: 'add', content: '        }' },
+          { lineNumber: 26, type: 'add', content: '        filterChain.doFilter(request, response);' },
+          { lineNumber: 27, type: 'add', content: '    }' },
+          { lineNumber: 28, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Extend OncePerRequestFilter',
+        description: 'OncePerRequestFilter ensures the JWT validation logic runs exactly once per request, even with request forwarding or error handling, preventing duplicate validation overhead.',
+        rejected: {
+          title: 'Implement Filter directly',
+          reason: 'Raw Filter interface requires manual handling of filter invocation semantics and doesn\'t guarantee single execution per request.',
+        },
+      },
+    ],
+  },
+
+  'LoginForm.tsx': {
+    fileChange: {
+      path: 'src/components/auth/',
+      filename: 'LoginForm.tsx',
+      changeType: 'added',
+      additions: 67,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,67 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'import { useState } from "react";' },
+          { lineNumber: 2, type: 'add', content: 'import { useAuth } from "@/hooks/useAuth";' },
+          { lineNumber: 3, type: 'add', content: '' },
+          { lineNumber: 4, type: 'add', content: 'export function LoginForm() {' },
+          { lineNumber: 5, type: 'add', content: '  const { login, isLoading } = useAuth();' },
+          { lineNumber: 6, type: 'add', content: '  const [email, setEmail] = useState("");' },
+          { lineNumber: 7, type: 'add', content: '  const [password, setPassword] = useState("");' },
+          { lineNumber: 8, type: 'add', content: '  const [error, setError] = useState<string | null>(null);' },
+          { lineNumber: 9, type: 'add', content: '' },
+          { lineNumber: 10, type: 'add', content: '  const handleSubmit = async (e: React.FormEvent) => {' },
+          { lineNumber: 11, type: 'add', content: '    e.preventDefault();' },
+          { lineNumber: 12, type: 'add', content: '    setError(null);' },
+          { lineNumber: 13, type: 'add', content: '    try {' },
+          { lineNumber: 14, type: 'add', content: '      await login({ email, password });' },
+          { lineNumber: 15, type: 'add', content: '    } catch (err) {' },
+          { lineNumber: 16, type: 'add', content: '      setError("Invalid credentials");' },
+          { lineNumber: 17, type: 'add', content: '    }' },
+          { lineNumber: 18, type: 'add', content: '  };' },
+          { lineNumber: 19, type: 'add', content: '' },
+          { lineNumber: 20, type: 'add', content: '  return (' },
+          { lineNumber: 21, type: 'add', content: '    <form onSubmit={handleSubmit}>' },
+          { lineNumber: 22, type: 'add', content: '      {error && <div className="error">{error}</div>}' },
+          { lineNumber: 23, type: 'add', content: '      <input' },
+          { lineNumber: 24, type: 'add', content: '        type="email"' },
+          { lineNumber: 25, type: 'add', content: '        value={email}' },
+          { lineNumber: 26, type: 'add', content: '        onChange={(e) => setEmail(e.target.value)}' },
+          { lineNumber: 27, type: 'add', content: '        placeholder="Email"' },
+          { lineNumber: 28, type: 'add', content: '      />' },
+          { lineNumber: 29, type: 'add', content: '      <input' },
+          { lineNumber: 30, type: 'add', content: '        type="password"' },
+          { lineNumber: 31, type: 'add', content: '        value={password}' },
+          { lineNumber: 32, type: 'add', content: '        onChange={(e) => setPassword(e.target.value)}' },
+          { lineNumber: 33, type: 'add', content: '        placeholder="Password"' },
+          { lineNumber: 34, type: 'add', content: '      />' },
+          { lineNumber: 35, type: 'add', content: '      <button type="submit" disabled={isLoading}>' },
+          { lineNumber: 36, type: 'add', content: '        {isLoading ? "Logging in..." : "Login"}' },
+          { lineNumber: 37, type: 'add', content: '      </button>' },
+          { lineNumber: 38, type: 'add', content: '    </form>' },
+          { lineNumber: 39, type: 'add', content: '  );' },
+          { lineNumber: 40, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'rationale',
+        title: 'Local error state for user feedback',
+        description: 'Maintaining error state in the component allows displaying validation and authentication errors directly in the form, providing immediate feedback without navigating away.',
+      },
+    ],
+  },
+
+  'useAuth.ts': {
+    fileChange: {
+      path: 'src/hooks/',
+      filename: 'useAuth.ts',
+      changeType: 'added',
+      additions: 56,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,56 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'import { createContext, useContext, useState, useEffect } from "react";' },
+          { lineNumber: 2, type: 'add', content: 'import type { AuthContext, AuthCredentials, User } from "@/types/auth";' },
+          { lineNumber: 3, type: 'add', content: '' },
+          { lineNumber: 4, type: 'add', content: 'const AuthContextInstance = createContext<AuthContext | null>(null);' },
+          { lineNumber: 5, type: 'add', content: '' },
+          { lineNumber: 6, type: 'add', content: 'export function useAuth(): AuthContext {' },
+          { lineNumber: 7, type: 'add', content: '  const context = useContext(AuthContextInstance);' },
+          { lineNumber: 8, type: 'add', content: '  if (!context) {' },
+          { lineNumber: 9, type: 'add', content: '    throw new Error("useAuth must be used within AuthProvider");' },
+          { lineNumber: 10, type: 'add', content: '  }' },
+          { lineNumber: 11, type: 'add', content: '  return context;' },
+          { lineNumber: 12, type: 'add', content: '}' },
+          { lineNumber: 13, type: 'add', content: '' },
+          { lineNumber: 14, type: 'add', content: 'export function AuthProvider({ children }: { children: React.ReactNode }) {' },
+          { lineNumber: 15, type: 'add', content: '  const [user, setUser] = useState<User | null>(null);' },
+          { lineNumber: 16, type: 'add', content: '  const [isLoading, setIsLoading] = useState(true);' },
+          { lineNumber: 17, type: 'add', content: '' },
+          { lineNumber: 18, type: 'add', content: '  const login = async (credentials: AuthCredentials) => {' },
+          { lineNumber: 19, type: 'add', content: '    const response = await fetch("/api/auth/login", {' },
+          { lineNumber: 20, type: 'add', content: '      method: "POST",' },
+          { lineNumber: 21, type: 'add', content: '      body: JSON.stringify(credentials),' },
+          { lineNumber: 22, type: 'add', content: '    });' },
+          { lineNumber: 23, type: 'add', content: '    const data = await response.json();' },
+          { lineNumber: 24, type: 'add', content: '    setUser(data.user);' },
+          { lineNumber: 25, type: 'add', content: '    localStorage.setItem("accessToken", data.accessToken);' },
+          { lineNumber: 26, type: 'add', content: '  };' },
+          { lineNumber: 27, type: 'add', content: '' },
+          { lineNumber: 28, type: 'add', content: '  const logout = () => {' },
+          { lineNumber: 29, type: 'add', content: '    setUser(null);' },
+          { lineNumber: 30, type: 'add', content: '    localStorage.removeItem("accessToken");' },
+          { lineNumber: 31, type: 'add', content: '  };' },
+          { lineNumber: 32, type: 'add', content: '' },
+          { lineNumber: 33, type: 'add', content: '  return (' },
+          { lineNumber: 34, type: 'add', content: '    <AuthContextInstance.Provider' },
+          { lineNumber: 35, type: 'add', content: '      value={{ user, isAuthenticated: !!user, isLoading, login, logout }}' },
+          { lineNumber: 36, type: 'add', content: '    >' },
+          { lineNumber: 37, type: 'add', content: '      {children}' },
+          { lineNumber: 38, type: 'add', content: '    </AuthContextInstance.Provider>' },
+          { lineNumber: 39, type: 'add', content: '  );' },
+          { lineNumber: 40, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Context-based auth state management',
+        description: 'Using React Context for auth state enables any component to access authentication status without prop drilling, centralizes auth logic, and ensures consistent state across the app.',
+        rejected: {
+          title: 'Component-level state',
+          reason: 'Local state would require passing auth data through many component layers and maintaining duplicate state in multiple locations.',
+        },
+      },
+    ],
+  },
+
+  'V2__add_orders_table.sql': {
+    fileChange: {
+      path: 'src/main/resources/db/migration/',
+      filename: 'V2__add_orders_table.sql',
+      changeType: 'added',
+      additions: 45,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,45 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: '-- V2: Add orders and line_items tables' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'CREATE TABLE orders (' },
+          { lineNumber: 4, type: 'add', content: '    id BIGSERIAL PRIMARY KEY,' },
+          { lineNumber: 5, type: 'add', content: '    customer_id BIGINT NOT NULL,' },
+          { lineNumber: 6, type: 'add', content: '    status VARCHAR(50) NOT NULL,' },
+          { lineNumber: 7, type: 'add', content: '    total_amount DECIMAL(19,2) NOT NULL,' },
+          { lineNumber: 8, type: 'add', content: '    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,' },
+          { lineNumber: 9, type: 'add', content: '    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,' },
+          { lineNumber: 10, type: 'add', content: '    CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(id)' },
+          { lineNumber: 11, type: 'add', content: ');' },
+          { lineNumber: 12, type: 'add', content: '' },
+          { lineNumber: 13, type: 'add', content: 'CREATE TABLE order_line_items (' },
+          { lineNumber: 14, type: 'add', content: '    id BIGSERIAL PRIMARY KEY,' },
+          { lineNumber: 15, type: 'add', content: '    order_id BIGINT NOT NULL,' },
+          { lineNumber: 16, type: 'add', content: '    product_id VARCHAR(255) NOT NULL,' },
+          { lineNumber: 17, type: 'add', content: '    quantity INTEGER NOT NULL,' },
+          { lineNumber: 18, type: 'add', content: '    unit_price DECIMAL(19,2) NOT NULL,' },
+          { lineNumber: 19, type: 'add', content: '    subtotal DECIMAL(19,2) NOT NULL,' },
+          { lineNumber: 20, type: 'add', content: '    CONSTRAINT fk_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE' },
+          { lineNumber: 21, type: 'add', content: ');' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Use ON DELETE CASCADE for line items',
+        description: 'Cascading deletes ensure that when an order is deleted, all its line items are automatically removed, maintaining referential integrity and preventing orphaned records.',
+        rejected: {
+          title: 'No cascade, manual deletion',
+          reason: 'Manual deletion requires application-level logic to clean up line items, increasing complexity and risk of orphaned data.',
+        },
+      },
+      {
+        type: 'rationale',
+        title: 'DECIMAL type for monetary values',
+        description: 'DECIMAL(19,2) prevents floating-point precision errors that could occur with FLOAT/DOUBLE, ensuring accurate financial calculations and storage of monetary amounts.',
+      },
+    ],
+  },
+
+  'V3__add_orders_indexes.sql': {
+    fileChange: {
+      path: 'src/main/resources/db/migration/',
+      filename: 'V3__add_orders_indexes.sql',
+      changeType: 'added',
+      additions: 23,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,23 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: '-- V3: Add indexes for orders performance' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'CREATE INDEX idx_orders_customer_id ON orders(customer_id);' },
+          { lineNumber: 4, type: 'add', content: 'CREATE INDEX idx_orders_status ON orders(status);' },
+          { lineNumber: 5, type: 'add', content: 'CREATE INDEX idx_orders_created_at ON orders(created_at);' },
+          { lineNumber: 6, type: 'add', content: '' },
+          { lineNumber: 7, type: 'add', content: 'CREATE INDEX idx_line_items_order_id ON order_line_items(order_id);' },
+          { lineNumber: 8, type: 'add', content: 'CREATE INDEX idx_line_items_product_id ON order_line_items(product_id);' },
+          { lineNumber: 9, type: 'add', content: '' },
+          { lineNumber: 10, type: 'add', content: '-- Composite index for common query pattern' },
+          { lineNumber: 11, type: 'add', content: 'CREATE INDEX idx_orders_customer_status ON orders(customer_id, status);' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'rationale',
+        title: 'Index on foreign keys',
+        description: 'Adding indexes on customer_id and order_id foreign keys dramatically improves JOIN performance and lookup queries. Without these, queries would require full table scans.',
+      },
+      {
+        type: 'decision',
+        title: 'Composite index for customer+status',
+        description: 'Common queries filter by both customer and status together (e.g., "show pending orders for customer"). Composite index enables efficient execution of these multi-column queries.',
+        rejected: {
+          title: 'Separate indexes only',
+          reason: 'Database would need to merge results from two separate indexes, which is slower than using a single composite index.',
+        },
+      },
+    ],
+  },
+
+  'OrderRepository.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/orders/repository/',
+      filename: 'OrderRepository.java',
+      changeType: 'added',
+      additions: 64,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,64 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'package com.acme.orders.repository;' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'import com.acme.orders.entity.Order;' },
+          { lineNumber: 4, type: 'add', content: 'import org.springframework.data.jpa.repository.JpaRepository;' },
+          { lineNumber: 5, type: 'add', content: 'import org.springframework.data.jpa.repository.Query;' },
+          { lineNumber: 6, type: 'add', content: 'import org.springframework.data.repository.query.Param;' },
+          { lineNumber: 7, type: 'add', content: '' },
+          { lineNumber: 8, type: 'add', content: 'import java.util.List;' },
+          { lineNumber: 9, type: 'add', content: 'import java.util.Optional;' },
+          { lineNumber: 10, type: 'add', content: '' },
+          { lineNumber: 11, type: 'add', content: 'public interface OrderRepository extends JpaRepository<Order, Long> {' },
+          { lineNumber: 12, type: 'add', content: '' },
+          { lineNumber: 13, type: 'add', content: '    List<Order> findByCustomerId(Long customerId);' },
+          { lineNumber: 14, type: 'add', content: '' },
+          { lineNumber: 15, type: 'add', content: '    List<Order> findByStatus(OrderStatus status);' },
+          { lineNumber: 16, type: 'add', content: '' },
+          { lineNumber: 17, type: 'add', content: '    @Query("SELECT o FROM Order o WHERE o.customer.id = :customerId AND o.status = :status")' },
+          { lineNumber: 18, type: 'add', content: '    List<Order> findByCustomerIdAndStatus(' },
+          { lineNumber: 19, type: 'add', content: '            @Param("customerId") Long customerId,' },
+          { lineNumber: 20, type: 'add', content: '            @Param("status") OrderStatus status);' },
+          { lineNumber: 21, type: 'add', content: '' },
+          { lineNumber: 22, type: 'add', content: '    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.lineItems WHERE o.id = :id")' },
+          { lineNumber: 23, type: 'add', content: '    Optional<Order> findByIdWithLineItems(@Param("id") Long id);' },
+          { lineNumber: 24, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'decision',
+        title: 'Custom query with JOIN FETCH',
+        description: 'Using JOIN FETCH in findByIdWithLineItems eagerly loads line items in a single query, avoiding N+1 problem when order details with line items are needed.',
+        rejected: {
+          title: 'Let JPA lazy-load line items',
+          reason: 'Lazy loading would trigger additional queries when accessing line items, causing N+1 performance issues.',
+        },
+      },
+      {
+        type: 'rationale',
+        title: 'Spring Data JPA method names',
+        description: 'Using Spring Data JPA query derivation (findByCustomerId) reduces boilerplate code and leverages framework conventions for common queries.',
+      },
+    ],
+  },
+
+  'LineItemRepository.java': {
+    fileChange: {
+      path: 'src/main/java/com/acme/orders/repository/',
+      filename: 'LineItemRepository.java',
+      changeType: 'added',
+      additions: 28,
+      deletions: 0,
+      agentId: 'impl-1',
+    },
+    hunks: [
+      {
+        range: '@@ -0,0 +1,28 @@',
+        context: 'new file',
+        lines: [
+          { lineNumber: 1, type: 'add', content: 'package com.acme.orders.repository;' },
+          { lineNumber: 2, type: 'add', content: '' },
+          { lineNumber: 3, type: 'add', content: 'import com.acme.orders.entity.OrderLineItem;' },
+          { lineNumber: 4, type: 'add', content: 'import org.springframework.data.jpa.repository.JpaRepository;' },
+          { lineNumber: 5, type: 'add', content: 'import org.springframework.data.jpa.repository.Query;' },
+          { lineNumber: 6, type: 'add', content: '' },
+          { lineNumber: 7, type: 'add', content: 'import java.util.List;' },
+          { lineNumber: 8, type: 'add', content: '' },
+          { lineNumber: 9, type: 'add', content: 'public interface LineItemRepository extends JpaRepository<OrderLineItem, Long> {' },
+          { lineNumber: 10, type: 'add', content: '' },
+          { lineNumber: 11, type: 'add', content: '    List<OrderLineItem> findByOrderId(Long orderId);' },
+          { lineNumber: 12, type: 'add', content: '' },
+          { lineNumber: 13, type: 'add', content: '    List<OrderLineItem> findByProductId(String productId);' },
+          { lineNumber: 14, type: 'add', content: '' },
+          { lineNumber: 15, type: 'add', content: '    @Query("SELECT SUM(li.subtotal) FROM OrderLineItem li WHERE li.order.id = :orderId")' },
+          { lineNumber: 16, type: 'add', content: '    BigDecimal calculateOrderTotal(@Param("orderId") Long orderId);' },
+          { lineNumber: 17, type: 'add', content: '}' },
+        ],
+      },
+    ],
+    reasoning: [
+      {
+        type: 'rationale',
+        title: 'Aggregate query for order total',
+        description: 'calculateOrderTotal uses database aggregation to sum line item subtotals efficiently, avoiding loading all items into memory for calculation in application code.',
+      },
+    ],
+  },
+};

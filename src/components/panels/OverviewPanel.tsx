@@ -18,15 +18,16 @@ interface OverviewPanelProps {
   selectedWorktreeId: string | null;
   onSelectWorktree: (id: string | null) => void;
   onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToDependencies?: (taskId: string) => void;
 }
 
-export function OverviewPanel({ selectedWorktreeId: _selectedWorktreeId, onSelectWorktree: _onSelectWorktree, onNavigateToPipeline }: OverviewPanelProps) {
+export function OverviewPanel({ selectedWorktreeId: _selectedWorktreeId, onSelectWorktree: _onSelectWorktree, onNavigateToPipeline, onNavigateToDependencies }: OverviewPanelProps) {
   // Note: Props kept for backward compatibility but unused in V2
 
   return (
     <div className="grid grid-cols-[1fr_320px] h-full">
       {/* Main content - Task board (full width in V2, no sidebar) */}
-      <MainContent onNavigateToPipeline={onNavigateToPipeline} />
+      <MainContent onNavigateToPipeline={onNavigateToPipeline} onNavigateToDependencies={onNavigateToDependencies} />
 
       {/* Right sidebar - Pending approvals only */}
       <ApprovalsPanel />
@@ -34,7 +35,10 @@ export function OverviewPanel({ selectedWorktreeId: _selectedWorktreeId, onSelec
   );
 }
 
-function MainContent({ onNavigateToPipeline }: { onNavigateToPipeline?: (taskId: string) => void }) {
+function MainContent({ onNavigateToPipeline, onNavigateToDependencies }: {
+  onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToDependencies?: (taskId: string) => void;
+}) {
   const { tasks, isV2, repositories } = useDataModel();
 
   return (
@@ -66,6 +70,7 @@ function MainContent({ onNavigateToPipeline }: { onNavigateToPipeline?: (taskId:
             icon="📋"
             tasks={tasks.filter((t) => t.status === 'backlog')}
             onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
           />
           <TaskColumn
             title="In Progress"
@@ -73,18 +78,21 @@ function MainContent({ onNavigateToPipeline }: { onNavigateToPipeline?: (taskId:
             tasks={tasks.filter((t) => t.status === 'in-progress')}
             highlight
             onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
           />
           <TaskColumn
             title="Review"
             icon="👁️"
             tasks={tasks.filter((t) => t.status === 'review')}
             onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
           />
           <TaskColumn
             title="Done"
             icon="✅"
             tasks={tasks.filter((t) => t.status === 'done')}
             onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
           />
         </div>
       </div>
@@ -98,12 +106,14 @@ function TaskColumn({
   tasks,
   highlight,
   onNavigateToPipeline,
+  onNavigateToDependencies,
 }: {
   title: string;
   icon: string;
   tasks: (Task | TaskV2)[];
   highlight?: boolean;
   onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToDependencies?: (taskId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -119,14 +129,25 @@ function TaskColumn({
 
       <div className="space-y-2 min-h-[100px]">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} highlight={highlight} onNavigateToPipeline={onNavigateToPipeline} />
+          <TaskCard
+            key={task.id}
+            task={task}
+            highlight={highlight}
+            onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function TaskCard({ task, highlight, onNavigateToPipeline }: { task: Task | TaskV2; highlight?: boolean; onNavigateToPipeline?: (taskId: string) => void }) {
+function TaskCard({ task, highlight, onNavigateToPipeline, onNavigateToDependencies }: {
+  task: Task | TaskV2;
+  highlight?: boolean;
+  onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToDependencies?: (taskId: string) => void;
+}) {
   const { getAgentById, worktrees } = useDataModel();
 
   // Type guard to check if task is TaskV2
@@ -241,13 +262,32 @@ function TaskCard({ task, highlight, onNavigateToPipeline }: { task: Task | Task
               </div>
               {onNavigateToPipeline && (
                 <button
-                  onClick={() => onNavigateToPipeline(task.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigateToPipeline(task.id);
+                  }}
                   className="flex items-center gap-0.5 text-[10px] text-accent-blue hover:text-accent-blue/80 font-medium"
                 >
                   View Pipeline
                   <ArrowRight className="w-3 h-3" />
                 </button>
               )}
+            </div>
+          )}
+
+          {/* View Dependencies button */}
+          {onNavigateToDependencies && (task.dependsOn?.length || task.blocks?.length) && (
+            <div className="flex items-center justify-end px-2 py-1.5 bg-bg-2 rounded">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToDependencies(task.id);
+                }}
+                className="flex items-center gap-0.5 text-[10px] text-accent-purple hover:text-accent-purple/80 font-medium"
+              >
+                View Dependencies
+                <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
           )}
         </div>
