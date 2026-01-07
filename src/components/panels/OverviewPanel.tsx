@@ -64,11 +64,19 @@ function MainContent({ onNavigateToPipeline, onNavigateToDependencies }: {
       </div>
 
       <div className="flex-1 overflow-auto p-5">
-        <div className="grid grid-cols-4 gap-4 min-w-[800px]">
+        <div className="grid grid-cols-5 gap-4 min-w-[1000px]">
           <TaskColumn
             title="Backlog"
             icon="📋"
             tasks={tasks.filter((t) => t.status === 'backlog')}
+            onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDependencies={onNavigateToDependencies}
+          />
+          <TaskColumn
+            title="Planning"
+            icon="📝"
+            tasks={tasks.filter((t) => t.status === 'planning')}
+            highlight
             onNavigateToPipeline={onNavigateToPipeline}
             onNavigateToDependencies={onNavigateToDependencies}
           />
@@ -84,7 +92,7 @@ function MainContent({ onNavigateToPipeline, onNavigateToDependencies }: {
             title="Review"
             icon="👁️"
             tasks={tasks.filter((t) => t.status === 'review')}
-            onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToPipeline={onNavigateToDependencies}
             onNavigateToDependencies={onNavigateToDependencies}
           />
           <TaskColumn
@@ -187,6 +195,47 @@ function TaskCard({ task, highlight, onNavigateToPipeline, onNavigateToDependenc
       </div>
 
       <h3 className="text-xs font-medium leading-relaxed mb-2.5">{task.title}</h3>
+
+      {/* Specification indicator */}
+      {taskV2?.specification && (
+        <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+          {taskV2.specification.status === 'pending_approval' ? (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-accent-amber/10 border border-accent-amber/30 rounded animate-pulse">
+              <AlertCircle className="w-3 h-3 text-accent-amber" />
+              <span className="text-accent-amber font-medium">Needs Approval</span>
+            </div>
+          ) : taskV2.specification.status === 'approved' ? (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-accent-green/10 border border-accent-green/30 rounded">
+              <CheckCircle2 className="w-3 h-3 text-accent-green" />
+              <span className="text-accent-green font-medium">Spec</span>
+            </div>
+          ) : taskV2.specification.status === 'draft' ? (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-text-3/10 border border-text-3/30 rounded">
+              <span className="text-text-3 font-medium">Drafting...</span>
+            </div>
+          ) : null}
+          {taskV2.specification.status === 'approved' && taskV2.specification.acceptanceCriteria.length > 0 && (
+            <span className="text-text-3">
+              {taskV2.specification.acceptanceCriteria.filter(ac => ac.completed).length}/{taskV2.specification.acceptanceCriteria.length} criteria
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Review Specification CTA (for pending approval) */}
+      {taskV2?.specification?.status === 'pending_approval' && onNavigateToPipeline && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigateToPipeline(task.id);
+          }}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mb-2 text-[11px] font-semibold bg-accent-amber text-white rounded hover:brightness-110 transition-all"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Review & Approve Specification
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      )}
 
       <div className="flex flex-wrap gap-1 mb-3">
         {task.tags.map((tag) => (

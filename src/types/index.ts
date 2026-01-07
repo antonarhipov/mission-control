@@ -150,7 +150,13 @@ export interface AgentConfig {
 }
 
 // Task types
-export type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked';
+export type TaskStatus =
+  | 'backlog'      // Not started, no work done yet
+  | 'planning'     // Specification being generated or awaiting approval
+  | 'in-progress'  // Specification approved, implementation started
+  | 'review'       // Implementation done, under review
+  | 'done'         // Completed
+  | 'blocked';     // Cannot proceed
 
 export interface Task {
   id: string;
@@ -352,6 +358,93 @@ export interface PipelineStageV2 extends PipelineStage {
   cost: number;
 }
 
+// =============================================================================
+// TASK SPECIFICATION - Defines what agents should build
+// =============================================================================
+
+// AcceptanceCriterion - Individual success criterion with completion status
+export interface AcceptanceCriterion {
+  id: string;
+  description: string;
+  completed: boolean;
+  completedAt?: string;
+  verifiedBy?: 'agent' | 'human';
+}
+
+// Specification approval status
+export type SpecificationStatus =
+  | 'draft'              // AI is still generating the spec
+  | 'pending_approval'   // Spec ready, waiting for user approval
+  | 'approved'           // User approved, task can proceed
+  | 'changes_requested'  // User requested changes to the spec
+  | 'rejected';          // User rejected the spec
+
+// TaskSpecification - AI-generated specification (approved by human)
+export interface TaskSpecification {
+  // Approval workflow
+  status: SpecificationStatus;
+  generatedAt: string;              // When AI generated this spec
+
+  // Summary
+  summary: string;
+
+  // Technical approach
+  technicalApproach: {
+    repositories: string[];        // Repository IDs that need changes
+    components: string[];           // Components/files to be affected
+    design: string;                 // Architecture/design decisions
+  };
+
+  // When is the task complete?
+  acceptanceCriteria: AcceptanceCriterion[];
+
+  // Scope estimation
+  estimatedScope: {
+    files: number;
+    complexity: 'simple' | 'moderate' | 'complex';
+    estimatedCost?: number;
+  };
+
+  // Dependencies
+  dependencies?: {
+    blockedBy?: string[];           // Other task IDs
+    requires?: string[];            // External dependencies (libs, APIs)
+  };
+
+  // Potential issues
+  risks?: string[];
+
+  // Approval tracking
+  approvedAt?: string;
+  approvedBy?: string;                // User who approved
+  rejectedAt?: string;
+  rejectionReason?: string;
+
+  // Feedback loop
+  userFeedback?: string;              // User's comments/requested changes
+
+  // Spec can be refined during implementation
+  revisions?: {
+    version: number;
+    changedAt: string;
+    changes: string;
+  }[];
+}
+
+// TaskCreation - User's initial input when creating a task
+export interface TaskCreation {
+  prompt: string;                     // What needs to be done
+  context?: string;                   // Additional context, links
+  linkedTicket?: {                    // External ticket reference
+    url: string;
+    system: 'jira' | 'linear' | 'github' | 'other';
+    externalId: string;
+  };
+  teamId: string;                     // Which team to assign
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  tags?: string[];
+}
+
 // TaskV2 - CENTRAL ENTITY for v2 architecture
 export interface TaskV2 {
   // Basic info
@@ -359,8 +452,20 @@ export interface TaskV2 {
   title: string;
   description?: string;
 
+  // User's original request (what defines the task)
+  userPrompt?: string;
+  context?: string;
+  linkedTicket?: {
+    url: string;
+    system: 'jira' | 'linear' | 'github' | 'other';
+    externalId: string;
+  };
+
+  // AI-generated specification (approved by user)
+  specification?: TaskSpecification;
+
   // Status
-  status: 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked';
+  status: TaskStatus;
   priority: 'critical' | 'high' | 'medium' | 'low';
   tags: string[];
 

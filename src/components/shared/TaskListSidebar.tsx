@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { CheckCircle2, AlertCircle, Clock, Archive } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Clock, Archive, FileText } from 'lucide-react';
 import { useDataModel } from '@/hooks/useDataModel';
 import type { TaskStatus, Task, TaskV2 } from '@/types';
 
@@ -21,6 +21,7 @@ export function TaskListSidebar({ selectedTaskId, onSelectTask }: TaskListSideba
   // Group tasks by status for better organization
   const groupedTasks = {
     'in-progress': filteredTasks.filter(t => t.status === 'in-progress'),
+    'planning': filteredTasks.filter(t => t.status === 'planning'),
     'review': filteredTasks.filter(t => t.status === 'review'),
     'backlog': filteredTasks.filter(t => t.status === 'backlog'),
     'done': filteredTasks.filter(t => t.status === 'done'),
@@ -29,6 +30,7 @@ export function TaskListSidebar({ selectedTaskId, onSelectTask }: TaskListSideba
 
   const statusConfig = {
     'in-progress': { icon: Clock, color: 'text-accent-blue', label: 'In Progress' },
+    'planning': { icon: FileText, color: 'text-accent-purple', label: 'Planning' },
     'review': { icon: AlertCircle, color: 'text-accent-amber', label: 'Review' },
     'backlog': { icon: Archive, color: 'text-text-3', label: 'Backlog' },
     'done': { icon: CheckCircle2, color: 'text-accent-green', label: 'Done' },
@@ -49,6 +51,7 @@ export function TaskListSidebar({ selectedTaskId, onSelectTask }: TaskListSideba
         >
           <option value="all">All Tasks ({tasks.length})</option>
           <option value="in-progress">In Progress ({groupedTasks['in-progress'].length})</option>
+          <option value="planning">Planning ({groupedTasks['planning'].length})</option>
           <option value="review">Review ({groupedTasks['review'].length})</option>
           <option value="backlog">Backlog ({groupedTasks['backlog'].length})</option>
           <option value="done">Done ({groupedTasks['done'].length})</option>

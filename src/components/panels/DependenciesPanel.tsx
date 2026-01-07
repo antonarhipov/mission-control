@@ -39,6 +39,7 @@ function calculateGraphLayout(tasks: (Task | TaskV2)[], isV2: boolean): GraphNod
   const columnX: Record<TaskStatus, number> = {
     'done': 100,
     'in-progress': 320,
+    'planning': 430,
     'review': 540,
     'backlog': 760,
     'blocked': 540,
@@ -48,6 +49,7 @@ function calculateGraphLayout(tasks: (Task | TaskV2)[], isV2: boolean): GraphNod
   const statusGroups: Record<TaskStatus, (Task | TaskV2)[]> = {
     'done': [],
     'in-progress': [],
+    'planning': [],
     'review': [],
     'backlog': [],
     'blocked': [],
@@ -419,6 +421,7 @@ function GraphNodeCard({
   const statusStyles: Record<TaskStatus, { bg: string; border: string; dot: string }> = {
     done: { bg: 'bg-accent-green/10', border: 'border-accent-green/30', dot: 'bg-accent-green' },
     'in-progress': { bg: 'bg-accent-blue/10', border: 'border-accent-blue/30', dot: 'bg-accent-blue' },
+    planning: { bg: 'bg-accent-purple/10', border: 'border-accent-purple/30', dot: 'bg-accent-purple' },
     review: { bg: 'bg-accent-amber/10', border: 'border-accent-amber/30', dot: 'bg-accent-amber' },
     backlog: { bg: 'bg-bg-3', border: 'border-border-1', dot: 'bg-text-3' },
     blocked: { bg: 'bg-accent-red/10', border: 'border-accent-red/30', dot: 'bg-accent-red' },
@@ -938,6 +941,7 @@ function StatusBadge({ status }: { status: TaskStatus }) {
   const config: Record<TaskStatus, { label: string; className: string }> = {
     done: { label: 'Done', className: 'bg-accent-green/20 text-accent-green' },
     'in-progress': { label: 'In Progress', className: 'bg-accent-blue/20 text-accent-blue' },
+    planning: { label: 'Planning', className: 'bg-accent-purple/20 text-accent-purple' },
     review: { label: 'Review', className: 'bg-accent-amber/20 text-accent-amber' },
     backlog: { label: 'Backlog', className: 'bg-bg-3 text-text-2' },
     blocked: { label: 'Blocked', className: 'bg-accent-red/20 text-accent-red' },

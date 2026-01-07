@@ -150,6 +150,85 @@ export const tasksV2: TaskV2[] = [
     id: 'ORD-142',
     title: 'Implement Order entity with JPA mappings and audit fields',
     description: 'Create the Order aggregate root with proper JPA annotations, audit fields, and relationship mappings to Customer and LineItem entities.',
+
+    // User's original request
+    userPrompt: 'Create an Order entity for the e-commerce platform with proper JPA mappings, relationships to Customer and LineItem, and automatic audit field tracking.',
+    context: 'This is part of the core domain model refactoring. The Order entity needs to support the full order lifecycle including creation, modification, and cancellation.',
+
+    // AI-generated specification (approved)
+    specification: {
+      status: 'approved',
+      generatedAt: '2 hours ago',
+
+      summary: 'Implement Order aggregate root as JPA entity with Customer and LineItem relationships, using constructor injection for dependencies and proper cascade configurations.',
+
+      technicalApproach: {
+        repositories: ['repo-order-service'],
+        components: [
+          'Order.java (entity)',
+          'OrderLineItem.java (entity)',
+          'OrderService.java (service)',
+          'OrderStatus.java (enum)'
+        ],
+        design: 'Use JPA annotations for entity mapping with LAZY fetching for Customer to avoid N+1 queries. Implement bidirectional OneToMany relationship with OrderLineItem using CascadeType.ALL. OrderService uses constructor injection and publishes domain events for order state changes.',
+      },
+
+      acceptanceCriteria: [
+        {
+          id: 'ac-1',
+          description: 'Order entity persists to database with all fields correctly mapped',
+          completed: true,
+          completedAt: '45 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-2',
+          description: 'Customer relationship uses LAZY fetching and works correctly',
+          completed: true,
+          completedAt: '38 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-3',
+          description: 'LineItem cascade operations work (save, delete)',
+          completed: true,
+          completedAt: '30 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-4',
+          description: 'OrderService uses constructor injection (no field injection)',
+          completed: true,
+          completedAt: '25 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-5',
+          description: 'Domain events published for order state changes',
+          completed: false,
+        },
+      ],
+
+      estimatedScope: {
+        files: 12,
+        complexity: 'moderate',
+        estimatedCost: 5.5,
+      },
+
+      dependencies: {
+        blockedBy: ['ORD-138'],
+        requires: ['Spring Boot 3.x', 'JPA/Hibernate', 'Lombok'],
+      },
+
+      risks: [
+        'N+1 query problems if EAGER fetching used incorrectly',
+        'Cascade configuration could cause unintended deletions',
+      ],
+
+      approvedAt: '2 hours ago',
+      approvedBy: 'user',
+    },
+
     status: 'in-progress',
     priority: 'high',
     tags: ['feature', 'backend'],
@@ -325,6 +404,98 @@ export const tasksV2: TaskV2[] = [
     id: 'AUTH-101',
     title: 'Implement user authentication',
     description: 'Add JWT-based authentication system across api-gateway, frontend, and shared type definitions.',
+
+    // User's original request
+    userPrompt: 'Add JWT-based user authentication to the platform with login, logout, and token refresh functionality.',
+    context: 'Critical security feature needed before public launch. Must work across all services and provide a good UX in the frontend.',
+    linkedTicket: {
+      url: 'https://linear.app/acme/issue/AUTH-101',
+      system: 'linear',
+      externalId: 'AUTH-101',
+    },
+
+    // AI-generated specification (approved)
+    specification: {
+      status: 'approved',
+      generatedAt: '1.5 hours ago',
+
+      summary: 'Implement JWT authentication with separate access/refresh tokens, shared type definitions across repos, Spring Security integration in gateway, and React Context-based auth state management in frontend.',
+
+      technicalApproach: {
+        repositories: ['repo-api-gateway', 'repo-frontend', 'repo-shared-types'],
+        components: [
+          'auth.ts (shared types)',
+          'user.ts (shared types)',
+          'JwtFilter.java (gateway filter)',
+          'JwtTokenProvider.java (gateway service)',
+          'SecurityConfig.java (gateway config)',
+          'LoginForm.tsx (frontend component)',
+          'useAuth.ts (frontend hook)',
+        ],
+        design: 'Use JWT with separate access (short-lived, 15min) and refresh tokens (long-lived, 7 days). Spring Security filter validates tokens on every request. Frontend stores tokens in localStorage and provides auth context via React Context. Shared types package ensures type consistency across services.',
+      },
+
+      acceptanceCriteria: [
+        {
+          id: 'ac-auth-1',
+          description: 'Shared auth types defined and used in all repos',
+          completed: true,
+          completedAt: '50 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-auth-2',
+          description: 'JWT filter validates tokens and extracts user ID',
+          completed: true,
+          completedAt: '35 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-auth-3',
+          description: 'Login form accepts credentials and stores tokens',
+          completed: true,
+          completedAt: '18 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-auth-4',
+          description: 'useAuth hook provides auth context to all components',
+          completed: true,
+          completedAt: '15 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-auth-5',
+          description: 'Token refresh mechanism implemented',
+          completed: false,
+        },
+        {
+          id: 'ac-auth-6',
+          description: 'Logout clears tokens and redirects to login',
+          completed: false,
+        },
+      ],
+
+      estimatedScope: {
+        files: 8,
+        complexity: 'complex',
+        estimatedCost: 8.5,
+      },
+
+      dependencies: {
+        requires: ['Spring Security', 'JWT library (jjwt)', 'React Context API'],
+      },
+
+      risks: [
+        'Token storage in localStorage vulnerable to XSS attacks',
+        'Token refresh timing could cause race conditions',
+        'CORS configuration needed for cross-origin requests',
+      ],
+
+      approvedAt: '1.5 hours ago',
+      approvedBy: 'user',
+    },
+
     status: 'in-progress',
     priority: 'critical',
     tags: ['feature', 'security', 'api'],
@@ -534,6 +705,83 @@ export const tasksV2: TaskV2[] = [
     id: 'ORD-140',
     title: 'Review Flyway migration scripts for orders schema',
     description: 'Code review of V2 migration script for orders and line_items tables.',
+
+    // User's original request
+    userPrompt: 'Review the Flyway migration scripts for the orders schema to ensure they follow best practices and have proper indexes.',
+    context: 'These migrations will run in production, so they need to be correct. Focus on data types, constraints, and index strategy.',
+
+    // AI-generated specification (approved)
+    specification: {
+      status: 'approved',
+      generatedAt: '1.5 hours ago',
+
+      summary: 'Review V2 and V3 Flyway migrations for orders and line_items tables, validating schema design, data types (especially DECIMAL for money), foreign key constraints, cascade behavior, and index strategy for performance.',
+
+      technicalApproach: {
+        repositories: ['repo-order-service'],
+        components: [
+          'V2__add_orders_table.sql',
+          'V3__add_orders_indexes.sql',
+        ],
+        design: 'Review SQL migration scripts for: (1) Correct data types (DECIMAL for money, not FLOAT), (2) Proper foreign key constraints with ON DELETE CASCADE, (3) NOT NULL constraints on required fields, (4) Index strategy covering foreign keys and common query patterns, (5) Composite indexes for multi-column queries.',
+      },
+
+      acceptanceCriteria: [
+        {
+          id: 'ac-db-1',
+          description: 'DECIMAL(19,2) used for all monetary values',
+          completed: true,
+          completedAt: '50 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-db-2',
+          description: 'Foreign key constraints properly defined with cascade behavior',
+          completed: true,
+          completedAt: '48 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-db-3',
+          description: 'All foreign keys have indexes',
+          completed: true,
+          completedAt: '46 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-db-4',
+          description: 'Composite index for customer_id + status query pattern',
+          completed: true,
+          completedAt: '44 min ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-db-5',
+          description: 'Migration scripts are idempotent and rollback safe',
+          completed: false,
+        },
+      ],
+
+      estimatedScope: {
+        files: 2,
+        complexity: 'simple',
+        estimatedCost: 2.0,
+      },
+
+      dependencies: {
+        blockedBy: [],
+        requires: ['Flyway', 'PostgreSQL 14+'],
+      },
+
+      risks: [
+        'Missing indexes could cause slow queries in production',
+        'Incorrect CASCADE behavior could lead to data loss',
+      ],
+
+      approvedAt: '1.5 hours ago',
+      approvedBy: 'user',
+    },
+
     status: 'review',
     priority: 'medium',
     tags: ['database', 'review'],
@@ -667,6 +915,81 @@ export const tasksV2: TaskV2[] = [
     id: 'ORD-138',
     title: 'Set up Spring Data JPA repositories for Order aggregate',
     description: 'Create OrderRepository interface extending JpaRepository with custom query methods.',
+
+    // User's original request
+    userPrompt: 'Create Spring Data JPA repositories for the Order entities with custom query methods for common use cases.',
+    context: 'Need repository layer for Order and LineItem entities before we can implement the service layer.',
+
+    // AI-generated specification (approved and completed)
+    specification: {
+      status: 'approved',
+      generatedAt: '3 hours ago',
+
+      summary: 'Create OrderRepository and LineItemRepository interfaces extending JpaRepository with custom query methods, including JOIN FETCH query to prevent N+1 problems and aggregate queries for calculations.',
+
+      technicalApproach: {
+        repositories: ['repo-order-service'],
+        components: [
+          'OrderRepository.java',
+          'LineItemRepository.java',
+        ],
+        design: 'Use Spring Data JPA repository pattern with: (1) Method name query derivation for simple queries (findByCustomerId), (2) @Query with JOIN FETCH for eager loading related entities, (3) Aggregate functions for database-side calculations (SUM for order totals), (4) Proper use of @Param annotations for named parameters.',
+      },
+
+      acceptanceCriteria: [
+        {
+          id: 'ac-repo-1',
+          description: 'OrderRepository extends JpaRepository',
+          completed: true,
+          completedAt: '2.5 hours ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-repo-2',
+          description: 'findByCustomerId query method works correctly',
+          completed: true,
+          completedAt: '2.3 hours ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-repo-3',
+          description: 'JOIN FETCH query prevents N+1 problem',
+          completed: true,
+          completedAt: '2.1 hours ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-repo-4',
+          description: 'LineItemRepository has aggregate query for totals',
+          completed: true,
+          completedAt: '1.8 hours ago',
+          verifiedBy: 'agent',
+        },
+        {
+          id: 'ac-repo-5',
+          description: 'All tests pass',
+          completed: true,
+          completedAt: '1.5 hours ago',
+          verifiedBy: 'agent',
+        },
+      ],
+
+      estimatedScope: {
+        files: 3,
+        complexity: 'simple',
+        estimatedCost: 2.5,
+      },
+
+      dependencies: {
+        requires: ['Spring Data JPA', 'Order entity (ORD-137)'],
+      },
+
+      risks: [],
+
+      approvedAt: '3 hours ago',
+      approvedBy: 'user',
+    },
+
     status: 'done',
     priority: 'medium',
     tags: ['feature', 'backend'],
@@ -773,6 +1096,13 @@ export const tasksV2: TaskV2[] = [
     id: 'ORD-145',
     title: 'Write repository integration tests with Testcontainers',
     description: 'Create integration tests for OrderRepository using Testcontainers with PostgreSQL.',
+
+    // User's original request
+    userPrompt: 'Write comprehensive integration tests for OrderRepository and LineItemRepository using Testcontainers to spin up a real PostgreSQL database.',
+    context: 'We need proper integration tests that run against a real database to catch issues that unit tests with mocks would miss.',
+
+    // No specification yet - will be generated when task moves to in-progress
+
     status: 'backlog',
     priority: 'high',
     tags: ['testing'],
@@ -797,6 +1127,117 @@ export const tasksV2: TaskV2[] = [
     blocks: [],
 
     createdAt: '1 day ago',
+  },
+
+  // Task 6: Task with specification pending approval
+  {
+    id: 'AUTH-102',
+    title: 'Add OAuth2 social login (Google, GitHub)',
+    description: 'Extend authentication system to support OAuth2 login via Google and GitHub providers.',
+
+    // User's original request
+    userPrompt: 'Add social login with Google and GitHub to make sign-up easier for users. Should integrate with our existing JWT auth system.',
+    context: 'Marketing team says social login increases conversion by 40%. Needs to work seamlessly with existing auth flow from AUTH-101.',
+    linkedTicket: {
+      url: 'https://linear.app/acme/issue/AUTH-102',
+      system: 'linear',
+      externalId: 'AUTH-102',
+    },
+
+    // AI-generated specification (PENDING APPROVAL)
+    specification: {
+      status: 'pending_approval',
+      generatedAt: '15 minutes ago',
+
+      summary: 'Implement OAuth2 authentication flow using Spring Security OAuth2 client for backend and a unified social login component for frontend. Use JWT as the final token format after OAuth2 exchange completes.',
+
+      technicalApproach: {
+        repositories: ['repo-api-gateway', 'repo-frontend', 'repo-shared-types'],
+        components: [
+          'OAuth2Config.java (gateway config)',
+          'OAuth2SuccessHandler.java (gateway handler)',
+          'SocialLoginButton.tsx (frontend component)',
+          'oauth.ts (shared types)',
+        ],
+        design: 'Use Spring Security OAuth2 client to handle provider redirects and token exchange. After successful OAuth2 authentication, issue our own JWT tokens to maintain consistency with existing auth. Frontend provides social login buttons that redirect to /oauth2/authorize/{provider}. Store OAuth2 user info in User table with provider field.',
+      },
+
+      acceptanceCriteria: [
+        {
+          id: 'ac-oauth-1',
+          description: 'Google OAuth2 login works end-to-end',
+          completed: false,
+        },
+        {
+          id: 'ac-oauth-2',
+          description: 'GitHub OAuth2 login works end-to-end',
+          completed: false,
+        },
+        {
+          id: 'ac-oauth-3',
+          description: 'OAuth2 users receive JWT tokens after authentication',
+          completed: false,
+        },
+        {
+          id: 'ac-oauth-4',
+          description: 'Existing JWT auth flow continues to work',
+          completed: false,
+        },
+        {
+          id: 'ac-oauth-5',
+          description: 'User accounts linked correctly (no duplicates)',
+          completed: false,
+        },
+      ],
+
+      estimatedScope: {
+        files: 8,
+        complexity: 'complex',
+        estimatedCost: 12.5,
+      },
+
+      dependencies: {
+        blockedBy: ['AUTH-101'],
+        requires: [
+          'Spring Security OAuth2 Client',
+          'Google OAuth2 credentials',
+          'GitHub OAuth App credentials',
+        ],
+      },
+
+      risks: [
+        'OAuth2 redirect flow could conflict with existing JWT filter',
+        'Account linking logic could create duplicate users',
+        'Provider token expiry handling needs careful design',
+        'CSRF protection required for OAuth2 callback endpoint',
+      ],
+    },
+
+    status: 'planning',
+    priority: 'high',
+    tags: ['feature', 'security', 'api'],
+
+    teamId: 'team-backend',
+    agents: [],
+
+    pipeline: [
+      { id: 'design', name: 'Design', status: 'pending', cost: 0 },
+      { id: 'impl', name: 'Implementation', status: 'pending', cost: 0 },
+      { id: 'test', name: 'Testing', status: 'pending', cost: 0 },
+    ],
+    currentStage: 'Awaiting Spec Approval',
+
+    progress: 0,
+    totalCost: 0,
+
+    worktrees: [],
+    commits: [],
+    fileChanges: [],
+
+    dependsOn: ['AUTH-101'],
+    blocks: [],
+
+    createdAt: '30 minutes ago',
   },
 ];
 

@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useDataModel } from '@/hooks/useDataModel';
+import { SpecificationViewer } from './SpecificationViewer';
 import type { TaskV2, Repository, TaskCommit, TaskFileChange, PipelineStageV2, Agent } from '@/types';
 
 interface PipelineDetailViewProps {
@@ -46,13 +47,14 @@ export function PipelineDetailView({ task, onNavigateToDiff }: PipelineDetailVie
               />
               <span className={clsx(
                 'text-xs font-medium px-2 py-0.5 rounded',
+                task.status === 'planning' && 'bg-accent-purple/20 text-accent-purple',
                 task.status === 'in-progress' && 'bg-accent-blue/20 text-accent-blue',
                 task.status === 'review' && 'bg-accent-amber/20 text-accent-amber',
                 task.status === 'done' && 'bg-accent-green/20 text-accent-green',
                 task.status === 'blocked' && 'bg-accent-red/20 text-accent-red',
                 task.status === 'backlog' && 'bg-text-3/20 text-text-2'
               )}>
-                {task.status === 'in-progress' ? 'In Progress' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                {task.status === 'in-progress' ? 'In Progress' : task.status === 'planning' ? 'Planning' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
               </span>
             </div>
             <h1 className="text-lg font-semibold mb-2">{task.title}</h1>
@@ -104,6 +106,15 @@ export function PipelineDetailView({ task, onNavigateToDiff }: PipelineDetailVie
 
       {/* Content sections */}
       <div className="p-6 space-y-6">
+        {/* Specification Viewer (if specification exists) */}
+        {task.specification && (
+          <SpecificationViewer
+            specification={task.specification}
+            userPrompt={task.userPrompt}
+            context={task.context}
+          />
+        )}
+
         {/* Pipeline Visualization */}
         <Section title="Pipeline Progress" icon={TrendingUp}>
           <PipelineStages stages={task.pipeline} currentStage={task.currentStage} />
