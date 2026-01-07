@@ -15,10 +15,10 @@ Traditional AI coding tools follow a "driver-passenger" model where AI drives an
 
 ### Core Principles
 
-1. **Worktree-Centric Development**: Git worktrees are the central organizing unit, not files or tasks
+1. **Task-Centric Development**: Tasks are the central organizing unit, worktrees are implementation details
 2. **Team-Based Agents**: Agents work in teams with specialized roles (Implementer, Architect, Tester, Reviewer, Docs)
-3. **Pipeline Workflows**: Each worktree follows a defined pipeline with visible stages
-4. **Cost Transparency**: Real-time cost tracking per agent, per worktree, per session
+3. **Pipeline Workflows**: Each task follows a defined pipeline with visible stages
+4. **Cost Transparency**: Real-time cost tracking per agent, per task, per session
 5. **Reasoning Visibility**: Every code change includes the agent's reasoning and alternatives considered
 
 ---
@@ -29,38 +29,56 @@ Traditional AI coding tools follow a "driver-passenger" model where AI drives an
 
 ```
 Project (acme-commerce)
+├── Repositories
+│   ├── api-gateway (path, remote, default branch)
+│   ├── order-service
+│   └── frontend
+│
 ├── Teams
 │   ├── Backend Squad (agents: Implementer, Architect, Tester, Reviewer)
 │   ├── Documentation (agents: Doc Writer)
 │   └── Infrastructure (agents: Implementer, Reviewer, Tester)
 │
-├── Tasks (Kanban items)
-│   ├── ORD-142: "Implement Order entity" → linked to Worktree
-│   ├── ORD-145: "Write integration tests" → backlog (no worktree yet)
-│   └── ...
-│
-└── Worktrees (THE CENTRAL ENTITY)
-    ├── wt-order-service
-    │   ├── Branch: feature/order-service
-    │   ├── Task: ORD-142
+└── Tasks (THE CENTRAL ENTITY)
+    ├── ORD-142: "Implement Order entity"
     │   ├── Team: Backend Squad
     │   ├── Agents: [Implementer (active), Architect (active), Tester (waiting)]
     │   ├── Pipeline: Design → Implementation → Testing → Review → Docs
-    │   ├── File Changes: [OrderService.java, Order.java, ...]
-    │   ├── Commits: [a3f7b2c, 8e4d1a9, ...]
+    │   ├── Worktrees (implementation detail, auto-created by agents):
+    │   │   ├── order-service @ feature/order-service
+    │   │   └── api-gateway @ feature/order-service
+    │   ├── Commits: [a3f7b2c, 8e4d1a9, ...] (aggregated from all worktrees)
+    │   ├── File Changes: [OrderService.java, Order.java, ...] (across repos)
+    │   ├── Progress: 65%
     │   └── Cost: $4.66
+    ├── ORD-145: "Write integration tests" → backlog (no worktrees yet)
     └── ...
 ```
 
 ### Key Entities
 
-#### Worktree
-The worktree is the **central organizing unit**. It represents:
-- An isolated git worktree with a feature branch
-- A unit of work linked to a task
+#### Task (CENTRAL ENTITY)
+The task is the **central organizing unit**. It represents:
+- A unit of work (like a Jira ticket)
 - A team assignment determining which agents participate
 - A pipeline defining the workflow stages
-- An aggregation point for cost, progress, and file changes
+- An aggregation point for cost, progress, and file changes across all repos
+- Automatic worktree creation by agents (hidden from user)
+
+Properties:
+- Status: backlog, in-progress, review, done, blocked
+- Priority: critical, high, medium, low
+- Tags: feature, bug, docs, etc.
+- Dependencies: dependsOn (blocked by), blocks (blocking)
+- Metrics: progress %, total cost, file changes, commits
+
+#### Worktree (Implementation Detail)
+Auto-created by agents within tasks:
+- An isolated git worktree with a feature branch
+- Belongs to a specific repository
+- Contains repo-specific changes for the task
+- Status: active, conflict, completed, merged
+- Hidden from primary UI (shown in technical views only)
 
 #### Agent
 Individual AI workers with specialized roles:
@@ -71,21 +89,23 @@ Individual AI workers with specialized roles:
 - **Docs**: Documentation, comments, OpenAPI specs
 
 #### Team
-Groups of agents that work together on worktrees:
+Groups of agents that work together on tasks:
 - Teams have a color and description
-- Worktrees are assigned to teams
+- Tasks are assigned to teams
 - Team composition determines the pipeline
 
-#### Task
-Represents work items (like Jira tickets):
-- Has status: backlog, in-progress, review, done, blocked
-- May be linked to a worktree (when work starts)
-- Tracks dependencies (dependsOn, blocks)
+#### Repository
+Connected codebases:
+- Local path and remote URL
+- Default branch configuration
+- Connection status
+- Auto-discovered when agents need to make changes
 
 #### Pipeline
-Workflow stages within a worktree:
+Workflow stages within a task:
 - Each stage has a status: pending, active, completed, blocked
 - Stages are assigned to specific agents
+- Cost tracked per stage
 - Progress flows through stages sequentially
 
 ---
@@ -115,17 +135,17 @@ Workflow stages within a worktree:
 
 **Tabs** (in order):
 1. **Overview** (📊) - Dashboard with task kanban and pending approvals
-2. **Worktrees** (🌳) - Detailed worktree management, badge shows active count
+2. **Pipelines** (⚡) - Task pipeline status and progress, badge shows active count
 3. **Diff Viewer** (📝) - Code changes with reasoning, badge shows file count
 4. **Cost Analytics** (💰) - Budget tracking and cost breakdown
-5. **Config** (⚙️) - Agent settings, permissions, team management
-6. **Dependencies** (🔗) - Task dependency graph, badge shows blocked count with alert
+5. **Config** (⚙️) - Agent settings, permissions, team management, repositories
+6. **Dependencies** (🔗) - Task dependency graph with critical path, badge shows blocked count with alert
 
 **Behavior**:
 - Active tab has blue underline indicator
 - Badges show dynamic counts
 - Alert badges (amber) indicate items needing attention
-- Selected worktree persists across Overview, Worktrees, and Diff tabs
+- Selected task persists across Overview, Pipelines, Dependencies, and Diff tabs
 
 ---
 
@@ -133,37 +153,25 @@ Workflow stages within a worktree:
 
 **Purpose**: High-level dashboard combining task management and approval queue
 
-**Layout**: Three-column grid (340px | flex | 320px)
+**Layout**: Two-column grid (flex | 320px)
 
-#### Left Column: Worktree Sidebar (Shared Component)
-- Header: "Worktrees" label + "New" button
-- Sections:
-  - **Active** (blue): Worktrees with status active/conflict
-  - **Ready to Merge** (green): Worktrees with status completed
-- Each worktree card shows:
-  - Branch name
-  - Task ID and title
-  - Team badge (colored)
-  - Status indicator
-  - Active agents (emoji avatars)
-  - Progress bar and percentage
-  - Cost
-- Footer stats: Active count, Conflicts count, Ready count
-- Selection state syncs across tabs
-
-#### Center Column: Task Kanban Board
+#### Main Area: Task Kanban Board
 - Four columns: Backlog, In Progress, Review, Done
 - Column headers with counts
 - Task cards show:
   - Task ID (monospace)
   - Priority indicator (colored dot)
-  - Title (truncated)
-  - Tags (first 2)
-  - Worktree link if assigned
+  - Title (2 lines max)
+  - Tags (feature, bug, etc.)
+  - Current pipeline stage indicator
+  - Progress bar and percentage
+  - Repositories count (e.g., "3 repos")
+  - Cost (e.g., "$3.04")
   - Agent avatars if active
-  - Progress bar
+  - "View Pipeline" navigation button (when in progress)
+  - "View Dependencies" button (when task has dependencies or blocks)
 - "Add Task" button in header
-- Filtered by selected worktree (or shows all if none selected)
+- Responsive column sizing
 
 #### Right Column: Pending Approvals
 - Header with count badge (amber when items pending)
@@ -183,43 +191,53 @@ Workflow stages within a worktree:
 
 ---
 
-### FR-4: Worktrees Panel
+### FR-4: Pipelines Panel
 
-**Purpose**: Detailed view of worktree status and activity
+**Purpose**: Detailed view of task pipeline status and progress across repositories
 
-**Layout**: Two-column grid (340px | flex)
+**Layout**: Two-column grid (300px | flex)
 
-#### Left Column: Worktree Sidebar (Shared Component)
-Same as Overview panel but without "All Tasks" option
+#### Left Column: Task List Sidebar
+- Filter dropdown (All, In Progress, Review, Backlog, Blocked)
+- Tasks grouped by status
+- Each task shows:
+  - Task ID (monospace)
+  - Title (truncated)
+  - Progress percentage
+  - Cost
+- Selection highlight
+- Collapsible sections for each status group
 
-#### Right Column: Worktree Detail View
+#### Right Column: Pipeline Detail View
 
 **Header Section**:
-- Branch name (monospace, blue link)
-- Status badge (Active/Conflict/Completed/Merging)
+- Task ID and full title
 - Team badge (colored)
-- Base branch indicator
+- Status badge
+- Timestamps: Started, Last updated
+- Total cost
 - Action buttons:
   - Pause/Resume
   - Create PR (when completed)
-  - Merge button (when ready)
-- Timestamps: Created, Last updated
+  - Mark Complete
 
-**Conflict Warning** (if applicable):
-- Red warning banner
-- List of conflicting files
-- Conflict details (our change vs their change)
-- "Resolve" button
+**Pipeline Visualization**:
+- Horizontal pipeline stages
+- Each stage shows:
+  - Stage name (Design, Implementation, Testing, Review, Docs)
+  - Status: pending (gray), active (blue with pulse), completed (green), blocked (red)
+  - Agent emoji assigned to stage
+  - Cost for stage
+  - Completion timestamp (if done)
 
-**Team Pipeline Section**:
-- Horizontal pipeline visualization
-- Stages with status colors:
-  - Pending: gray
-  - Active: blue (animated pulse)
-  - Completed: green
-  - Blocked: red
-- Agent avatar under each stage
-- Stage names and completion timestamps
+**Repositories Involved Section**:
+- Mini cards for each repository with changes
+- Each card shows:
+  - Repository name
+  - Status indicator (active, conflict, completed)
+  - Files changed count
+  - Worktree branch name (technical detail, small text)
+- Conflict warning if any repo has conflicts
 
 **Agent Contributions Section**:
 - Grid of agent cards
@@ -227,7 +245,7 @@ Same as Overview panel but without "All Tasks" option
   - Agent emoji and name
   - Active indicator (green ring when working)
   - Current stage
-  - Role (primary/supporting/waiting)
+  - Role (primary/supporting/waiting/completed)
   - Contribution stats:
     - Commits count
     - Files changed
@@ -240,15 +258,23 @@ Same as Overview panel but without "All Tasks" option
   - Agent/human avatar
   - Commit message
   - SHA (truncated, blue link)
+  - Repository indicator
   - Timestamp
-  - Files changed indicator
+  - Files changed count
+  - Cost per commit
+  - "View Diff →" button
 - Distinguishes agent commits from human commits
+- Shows which repository each commit belongs to
 
-**Changed Files Preview**:
-- File list with change type indicators (A/M/D)
-- Path and filename
-- Agent attribution
-- Addition/deletion counts
+**Changed Files Section**:
+- Files grouped by repository
+- Each file shows:
+  - Change type indicator (A/M/D colored)
+  - Path and filename
+  - Agent attribution
+  - Addition/deletion counts
+  - "View →" button to open in Diff viewer
+- Conflict indicator on files with conflicts
 
 ---
 
@@ -259,9 +285,11 @@ Same as Overview panel but without "All Tasks" option
 **Layout**: Three-column grid (260px | flex | 340px)
 
 #### Header Bar
-- Worktree selector dropdown
+- Task selector dropdown
+- Scope toggle: "All Changes" vs "By Commit"
+- Commit dropdown (when "By Commit" selected)
 - Team badge
-- Stats: File count, +additions/-deletions, cost
+- Stats: File count, +additions/-deletions, cost (for current scope)
 
 #### Left Column: File List
 - Header with total changes count
@@ -394,12 +422,17 @@ Same as Overview panel but without "All Tasks" option
 
 ### FR-8: Dependencies Panel
 
-**Purpose**: Visualize task dependencies and critical path
+**Purpose**: Visualize task dependencies and identify critical path
 
 **Layout**: Graph area + detail sidebar
 
+**Features**:
+- **Dynamic Critical Path Calculation**: Automatically computes critical path using CPM algorithm
+- **Validation Warnings**: Detects circular dependencies and missing task references
+- **Cross-Tab Navigation**: Navigate to Pipelines or Diff viewer from task details
+
 #### View Modes
-- **Graph**: Node-based visualization
+- **Graph**: Node-based visualization (default)
 - **List**: Sortable table view
 - **Timeline**: Chronological phases
 
@@ -409,60 +442,104 @@ Same as Overview panel but without "All Tasks" option
   - Task ID
   - Status dot (colored)
   - Title (truncated)
-  - Worktree indicator
+  - Repository count
   - Agent avatars
   - Progress bar
+  - Critical path indicator (red badge with warning icon)
+  - Focus animation (cyan pulse when navigated to from other tabs)
 - Dependency arrows:
   - Normal: gray curved lines
-  - Critical path: red highlighted
-- Legend for status colors
+  - Critical path: red highlighted (thicker, animated)
+- Legend for status colors and critical path
 - Zoom controls (50%-150%)
 
+#### Validation Banners
+**Error Banner** (dismissible):
+- Red background with alert icon
+- Shows circular dependency cycles
+- Example: "ORD-142 → ORD-145 → ORD-146 → ORD-142"
+- Prevents critical path calculation until resolved
+
+**Warning Banner** (dismissible):
+- Amber background with info icon
+- Shows validation warnings (e.g., missing task references)
+- Example: "Task ORD-142 blocks non-existent task ORD-146"
+- Critical path still calculated, but with caveats
+
 #### Task Detail Sidebar
-- Critical path warning (if applicable)
+- Critical path warning (if applicable):
+  - Red banner
+  - "This task is on the critical path. Delays will impact the overall timeline."
 - Task header:
   - ID, status badge, priority badge
   - Full title
-- Worktree info (if linked):
-  - Branch name
+- Repository info (if task has worktrees):
+  - Repositories involved count
   - File/commit counts
   - Cost
 - Progress bar
-- Agent team list
-- Dependencies list (depends on)
-- Blocking list (blocks)
+- Agent team list with active indicators
+- Dependencies list (depends on):
+  - Status dots for each dependency
+  - Truncated titles
+- Blocking list (blocks):
+  - Status dots for each blocked task
+  - Truncated titles
 - Tags
+- Action buttons:
+  - "View Pipeline" → Navigates to Pipelines tab
+  - "Open in Diff" → Navigates to Diff tab with latest commit
+
+#### Critical Path Algorithm
+- Uses Critical Path Method (CPM) with forward/backward pass
+- Duration estimation:
+  - Done tasks: Actual duration from timestamps
+  - In-progress: Elapsed time + projected remaining based on progress
+  - Backlog: Priority-based defaults (high=12h, medium=8h, low=4h)
+- Circular dependency detection via DFS
+- Topological sort using Kahn's algorithm
+- Identifies tasks with zero slack as critical path
 
 ---
 
 ## Shared Components
 
-### WorktreeSidebar
-**Used in**: Overview, Worktrees panels
+### TaskCard
+**Used in**: OverviewPanel (Kanban), PipelinesPanel (Task List)
 
 **Props**:
-- `selectedWorktreeId`: Current selection
-- `onSelectWorktree`: Selection handler
-- `showAllTasksOption`: Whether to show "All Tasks" option
+- `task`: TaskV2 data
+- `variant`: 'kanban' | 'list'
+- `highlight`: Optional highlight for in-progress
+- `onNavigateToPipeline`: Navigation callback
+- `onNavigateToDependencies`: Navigation callback
 
 **Features**:
-- Consistent 340px width
-- Grouped sections (Active, Ready to Merge)
-- Stats footer
-- Synced selection state
-
-### WorktreeCard
-**Used in**: WorktreeSidebar
-
-**Props**:
-- `worktree`: Worktree data
-- `variant`: 'compact' | 'full'
-- `isSelected`: Selection state
-- `onClick`: Click handler
+- Shows task ID, title, priority
+- Pipeline stage indicator
+- Progress bar
+- Repository count and cost
+- Active agent avatars
+- Navigation buttons (contextual)
 
 **Variants**:
-- Compact: Minimal info for dense lists
-- Full: Complete info with all stats
+- Kanban: Full card with all details
+- List: Compact version for sidebar
+
+### TaskListSidebar
+**Used in**: PipelinesPanel
+
+**Props**:
+- `selectedTaskId`: Current selection
+- `onSelectTask`: Selection handler
+- `filterStatus`: Optional status filter
+
+**Features**:
+- Consistent 300px width
+- Grouped by status
+- Collapsible sections
+- Filter dropdown
+- Shows progress and cost
 
 ---
 
@@ -570,7 +647,7 @@ src/
 │   │   └── TabBar.tsx
 │   ├── panels/
 │   │   ├── OverviewPanel.tsx
-│   │   ├── WorktreePanel.tsx
+│   │   ├── PipelinesPanel.tsx
 │   │   ├── DiffPanel.tsx
 │   │   ├── CostPanel.tsx
 │   │   ├── ConfigPanel.tsx
@@ -580,21 +657,44 @@ src/
 │   │   ├── DiffViewer.tsx
 │   │   └── ReasoningPanel.tsx
 │   └── shared/
-│       ├── WorktreeSidebar.tsx
-│       └── WorktreeCard.tsx
+│       ├── TaskCard.tsx
+│       ├── TaskListSidebar.tsx (planned)
+│       ├── TaskSidebar.tsx
+│       └── WorktreeCard.tsx (legacy, V1 compatibility)
 ├── data/
-│   └── mockData.ts
+│   ├── mockData.ts (V1 data, legacy)
+│   └── mockDataV2.ts (V2 task-centric data)
 ├── types/
 │   └── index.ts
+├── utils/
+│   └── dependencyGraph.ts (CPM algorithms)
+├── hooks/
+│   └── useDataModel.ts
 └── App.tsx
 ```
 
 ### Data Flow
-1. `App.tsx` manages global state (activeTab, selectedWorktreeId)
-2. Panels receive state via props
-3. Panels can update shared state via callbacks
-4. Mock data simulates backend responses
-5. Helper functions provide data lookups
+1. `App.tsx` manages global state:
+   - `activeTab`: Current tab selection
+   - `selectedTaskId`: Currently selected task (persists across tabs)
+   - `selectedCommitSha`: Currently selected commit (for Diff viewer)
+   - `focusedTaskId`: Task to highlight with animation (transient, 3s timeout)
+2. `useDataModel()` hook provides V2 data model access:
+   - Always returns V2 (task-centric) data
+   - Tasks, repositories, project, teams, agents
+   - Helper functions for data lookups
+3. Panels receive state via props and update via callbacks:
+   - `onSelectTask(taskId)`: Update selected task
+   - `navigateToDiff(taskId, commitSha?)`: Navigate to Diff viewer
+   - `navigateToPipeline(taskId)`: Navigate to Pipelines panel
+   - `navigateToDependencies(taskId)`: Navigate to Dependencies panel
+4. Mock data structure:
+   - `mockDataV2.ts`: Task-centric data (current)
+   - `mockData.ts`: Worktree-centric data (legacy, V1 compatibility)
+5. Navigation pattern:
+   - Cross-tab navigation preserves task context
+   - Focus animation highlights navigated-to tasks
+   - State synchronization across panels
 
 ---
 
@@ -603,16 +703,23 @@ src/
 | Term | Definition |
 |------|------------|
 | **ADE** | Agentic Development Environment - next-gen IDE with AI agents |
-| **Worktree** | Git worktree + associated metadata (team, pipeline, cost) |
-| **Pipeline** | Sequence of stages (Design → Implementation → Test → Review) |
-| **Agent** | AI worker with specialized role |
-| **Team** | Group of agents working together |
+| **Task** | Central organizing unit representing work to be done (like a Jira ticket) |
+| **Worktree** | Git worktree (implementation detail, auto-created by agents per repository) |
+| **Repository** | Connected codebase (local path + remote URL + configuration) |
+| **Pipeline** | Sequence of stages within a task (Design → Implementation → Test → Review) |
+| **Agent** | AI worker with specialized role (Implementer, Architect, Tester, Reviewer, Docs) |
+| **Team** | Group of agents working together on tasks |
 | **Approval** | Human decision point in agent workflow |
 | **Navigator Pattern** | Human guides, AI executes |
-| **Critical Path** | Sequence of dependent tasks affecting delivery |
+| **Critical Path** | Sequence of dependent tasks affecting delivery, calculated via CPM algorithm |
+| **CPM** | Critical Path Method - algorithm for identifying critical tasks with zero slack |
+| **Focus Animation** | 3-second cyan pulse highlight when navigating to a task from another tab |
+| **Cross-Tab Navigation** | Ability to navigate between tabs while preserving task context |
+| **TaskV2** | Task-centric data model with embedded worktrees (current implementation) |
+| **V1 Compatibility** | Legacy worktree-centric data model (deprecated but still supported) |
 
 ---
 
-*Document Version: 1.0*
+*Document Version: 2.0 (Task-Centric)*
 *Last Updated: January 2025*
 *Project: Mission Control UI Prototype*
