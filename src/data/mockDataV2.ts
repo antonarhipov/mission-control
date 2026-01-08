@@ -180,6 +180,10 @@ export const tasksV2: TaskV2[] = [
           completed: true,
           completedAt: '45 min ago',
           verifiedBy: 'agent',
+          implementedIn: {
+            commits: ['8e4d1a9'],
+            files: ['src/main/java/com/acme/orders/entity/Order.java'],
+          },
         },
         {
           id: 'ac-2',
@@ -187,6 +191,10 @@ export const tasksV2: TaskV2[] = [
           completed: true,
           completedAt: '38 min ago',
           verifiedBy: 'agent',
+          implementedIn: {
+            commits: ['8e4d1a9'],
+            files: ['src/main/java/com/acme/orders/entity/Order.java'],
+          },
         },
         {
           id: 'ac-3',
@@ -194,6 +202,10 @@ export const tasksV2: TaskV2[] = [
           completed: true,
           completedAt: '30 min ago',
           verifiedBy: 'agent',
+          implementedIn: {
+            commits: ['8e4d1a9'],
+            files: ['src/main/java/com/acme/orders/entity/Order.java', 'src/main/java/com/acme/orders/entity/OrderLineItem.java'],
+          },
         },
         {
           id: 'ac-4',
@@ -201,6 +213,10 @@ export const tasksV2: TaskV2[] = [
           completed: true,
           completedAt: '25 min ago',
           verifiedBy: 'agent',
+          implementedIn: {
+            commits: ['a3f7b2c'],
+            files: ['src/main/java/com/acme/orders/service/OrderService.java'],
+          },
         },
         {
           id: 'ac-5',
@@ -317,6 +333,7 @@ export const tasksV2: TaskV2[] = [
         deletions: 23,
         cost: { inputTokens: 48000, outputTokens: 6200, toolCalls: 12, totalCost: 0.53 },
         fileIds: ['file-1', 'file-2', 'file-3'],
+        fulfillsAcceptanceCriteria: ['ac-4'],
         timestamp: '12 min ago',
       },
       {
@@ -333,6 +350,7 @@ export const tasksV2: TaskV2[] = [
         deletions: 0,
         cost: { inputTokens: 52000, outputTokens: 8000, toolCalls: 15, totalCost: 0.68 },
         fileIds: ['file-4', 'file-5'],
+        fulfillsAcceptanceCriteria: ['ac-1', 'ac-2', 'ac-3'],
         timestamp: '24 min ago',
       },
       {
@@ -365,6 +383,8 @@ export const tasksV2: TaskV2[] = [
         deletions: 23,
         agentId: 'impl-1',
         commitShas: ['a3f7b2c'],
+        fulfillsAcceptanceCriteria: ['ac-4'],
+        specRationale: 'Refactored OrderService to use constructor injection instead of field injection, fulfilling AC-4 requirement for proper dependency injection patterns.',
       },
       {
         id: 'file-2',
@@ -377,6 +397,8 @@ export const tasksV2: TaskV2[] = [
         deletions: 0,
         agentId: 'impl-1',
         commitShas: ['8e4d1a9'],
+        fulfillsAcceptanceCriteria: ['ac-1', 'ac-2', 'ac-3'],
+        specRationale: 'Created Order aggregate root entity with JPA annotations for database persistence (AC-1), LAZY fetching for Customer relationship (AC-2), and cascade configuration for LineItem operations (AC-3).',
       },
       {
         id: 'file-3',
@@ -389,6 +411,8 @@ export const tasksV2: TaskV2[] = [
         deletions: 0,
         agentId: 'impl-1',
         commitShas: ['8e4d1a9'],
+        fulfillsAcceptanceCriteria: ['ac-3'],
+        specRationale: 'Created OrderLineItem entity with bidirectional relationship to Order, enabling cascade operations for save and delete as specified in AC-3.',
       },
     ],
 

@@ -4,11 +4,12 @@ import { ChevronDown, GitBranch, GitCommit, Layers } from 'lucide-react';
 import { FileList } from '@/components/diff/FileList';
 import { DiffViewer } from '@/components/diff/DiffViewer';
 import { ReasoningPanel } from '@/components/diff/ReasoningPanel';
+import { SpecificationTraceability } from '@/components/shared/SpecificationTraceability';
 import { WorktreeStatusBadge } from '@/components/shared/WorktreeCard';
 import { useDataModel } from '@/hooks/useDataModel';
 import { worktrees, getAgentById, getTaskById } from '@/data/mockData';
 import { fileDiffs } from '@/data/mockDataV2';
-import type { Worktree, FileChange, TaskV2 } from '@/types';
+import type { Worktree, FileChange, TaskV2, TaskFileChange } from '@/types';
 
 interface DiffPanelProps {
   selectedWorktreeId: string | null;
@@ -16,13 +17,15 @@ interface DiffPanelProps {
   // V2 props (optional for backward compatibility)
   selectedTaskId?: string | null;
   selectedCommitSha?: string | null;
+  onNavigateToPipeline?: (taskId: string, criterionId?: string) => void;
 }
 
 export function DiffPanel({
   selectedWorktreeId,
   onSelectWorktree,
   selectedTaskId,
-  selectedCommitSha
+  selectedCommitSha,
+  onNavigateToPipeline
 }: DiffPanelProps) {
   const { isV2, tasks } = useDataModel();
 
@@ -370,6 +373,29 @@ export function DiffPanel({
             <p className="text-text-3 text-sm">No files to display</p>
           </div>
         )}
+
+        {/* Specification Context - NEW */}
+        {isV2 && taskV2 && taskV2.specification && selectedFile && onNavigateToPipeline && (() => {
+          // Cast selectedFile to TaskFileChange to access traceability fields
+          const taskFileChange = selectedFile as unknown as TaskFileChange;
+
+          // Get criteria that this file implements
+          const relevantCriteria = taskV2.specification.acceptanceCriteria.filter(
+            (ac) => taskFileChange.fulfillsAcceptanceCriteria?.includes(ac.id)
+          );
+
+          if (relevantCriteria.length === 0) return null;
+
+          return (
+            <SpecificationTraceability
+              acceptanceCriteria={relevantCriteria}
+              taskId={taskV2.id}
+              onNavigateToSpec={(taskId, criterionId) => {
+                onNavigateToPipeline(taskId, criterionId);
+              }}
+            />
+          );
+        })()}
 
         {/* Reasoning panel */}
         <ReasoningPanel diff={fileDiff} />

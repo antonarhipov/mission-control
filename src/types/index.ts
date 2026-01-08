@@ -307,6 +307,9 @@ export interface TaskCommit {
   // File references (for filtering)
   fileIds: string[];
 
+  // Specification traceability
+  fulfillsAcceptanceCriteria?: string[]; // ["AC-1", "AC-2"]
+
   timestamp: string;
 }
 
@@ -330,6 +333,10 @@ export interface TaskFileChange {
 
   // Commit references
   commitShas: string[];
+
+  // Specification traceability
+  fulfillsAcceptanceCriteria?: string[]; // ["AC-1", "AC-3"]
+  specRationale?: string; // Brief explanation of why per spec
 }
 
 // TaskWorktreeV2 - Simplified worktree (embedded in Task)
@@ -369,6 +376,12 @@ export interface AcceptanceCriterion {
   completed: boolean;
   completedAt?: string;
   verifiedBy?: 'agent' | 'human';
+
+  // Traceability: What implements this criterion
+  implementedIn?: {
+    commits: string[];   // Commit SHAs
+    files: string[];     // File paths
+  };
 }
 
 // Specification approval status

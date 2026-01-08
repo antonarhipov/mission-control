@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
 import {
   FileText,
@@ -26,9 +26,10 @@ interface SpecificationViewerProps {
   specification: TaskSpecification;
   userPrompt?: string;
   context?: string;
+  focusedCriterionId?: string;
 }
 
-export function SpecificationViewer({ specification, userPrompt, context }: SpecificationViewerProps) {
+export function SpecificationViewer({ specification, userPrompt, context, focusedCriterionId }: SpecificationViewerProps) {
   const [expandedSections, setExpandedSections] = useState({
     userRequest: true,
     summary: true,
@@ -44,6 +45,22 @@ export function SpecificationViewer({ specification, userPrompt, context }: Spec
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
+
+  // Scroll to focused criterion
+  useEffect(() => {
+    if (focusedCriterionId) {
+      // Ensure acceptance criteria section is expanded
+      setExpandedSections(prev => ({ ...prev, acceptanceCriteria: true }));
+
+      // Scroll to criterion after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        const element = document.getElementById(`criterion-${focusedCriterionId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [focusedCriterionId]);
 
   const completedCriteria = specification.acceptanceCriteria.filter(ac => ac.completed).length;
   const totalCriteria = specification.acceptanceCriteria.length;
@@ -238,7 +255,11 @@ export function SpecificationViewer({ specification, userPrompt, context }: Spec
             {specification.acceptanceCriteria.map((criterion) => (
               <div
                 key={criterion.id}
-                className="flex items-start gap-2.5 px-3 py-2 bg-bg-2 border border-border-1 rounded"
+                id={`criterion-${criterion.id}`}
+                className={clsx(
+                  'flex items-start gap-2.5 px-3 py-2 bg-bg-2 border border-border-1 rounded transition-all',
+                  focusedCriterionId === criterion.id && 'ring-2 ring-accent-purple animate-pulse'
+                )}
               >
                 <div className="pt-0.5">
                   {criterion.completed ? (

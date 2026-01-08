@@ -22,6 +22,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(tasks[0]?.id || null);
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null);
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
+  const [focusedCriterionId, setFocusedCriterionId] = useState<string | null>(null);
 
   // Navigation helpers
   const navigateToDiff = useCallback((taskId: string, commitSha?: string) => {
@@ -30,10 +31,17 @@ function App() {
     setActiveTab('diff');
   }, []);
 
-  const navigateToPipeline = useCallback((taskId: string) => {
+  const navigateToPipeline = useCallback((taskId: string, criterionId?: string) => {
     setSelectedTaskId(taskId);
     setSelectedCommitSha(null); // Clear commit context
     setActiveTab('worktree'); // Navigate to pipelines tab
+
+    // Set focused criterion for deep linking
+    if (criterionId) {
+      setFocusedCriterionId(criterionId);
+      // Clear focus after animation completes
+      setTimeout(() => setFocusedCriterionId(null), 3000);
+    }
   }, []);
 
   const navigateToDependencies = useCallback((taskId: string) => {
@@ -62,6 +70,7 @@ function App() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
             onNavigateToDiff={navigateToDiff}
+            focusedCriterionId={focusedCriterionId || undefined}
           />
         );
       case 'diff':
@@ -71,6 +80,7 @@ function App() {
             onSelectWorktree={setSelectedWorktreeId}
             selectedTaskId={selectedTaskId}
             selectedCommitSha={selectedCommitSha}
+            onNavigateToPipeline={navigateToPipeline}
           />
         );
       case 'cost':

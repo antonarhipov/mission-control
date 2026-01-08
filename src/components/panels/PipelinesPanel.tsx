@@ -7,12 +7,14 @@ interface PipelinesPanelProps {
   selectedTaskId: string | null;
   onSelectTask: (id: string) => void;
   onNavigateToDiff: (taskId: string, commitSha?: string) => void;
+  focusedCriterionId?: string;
 }
 
 export function PipelinesPanel({
   selectedTaskId,
   onSelectTask,
   onNavigateToDiff,
+  focusedCriterionId,
 }: PipelinesPanelProps) {
   const { tasks, isV2 } = useDataModel();
 
@@ -43,6 +45,7 @@ export function PipelinesPanel({
         <PipelineDetailView
           task={selectedTaskV2}
           onNavigateToDiff={onNavigateToDiff}
+          focusedCriterionId={focusedCriterionId}
         />
       ) : (
         <div className="flex items-center justify-center h-full bg-bg-0">

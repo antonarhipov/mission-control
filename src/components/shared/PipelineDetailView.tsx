@@ -19,9 +19,10 @@ import type { TaskV2, Repository, TaskCommit, TaskFileChange, PipelineStageV2, A
 interface PipelineDetailViewProps {
   task: TaskV2;
   onNavigateToDiff: (taskId: string, commitSha?: string) => void;
+  focusedCriterionId?: string;
 }
 
-export function PipelineDetailView({ task, onNavigateToDiff }: PipelineDetailViewProps) {
+export function PipelineDetailView({ task, onNavigateToDiff, focusedCriterionId }: PipelineDetailViewProps) {
   const { getTeamById, getRepositoryById, getAgentById } = useDataModel();
   const team = getTeamById(task.teamId);
 
@@ -112,6 +113,7 @@ export function PipelineDetailView({ task, onNavigateToDiff }: PipelineDetailVie
             specification={task.specification}
             userPrompt={task.userPrompt}
             context={task.context}
+            focusedCriterionId={focusedCriterionId}
           />
         )}
 
