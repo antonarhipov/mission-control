@@ -8,7 +8,7 @@ interface ReasoningPanelProps {
 export function ReasoningPanel({ diff }: ReasoningPanelProps) {
   if (!diff?.reasoning && !diff?.references && !diff?.testResults) {
     return (
-      <div className="bg-bg-1 border-l border-border-1 flex items-center justify-center">
+      <div className="flex items-center justify-center">
         <div className="text-center text-text-3 p-4">
           <div className="text-2xl mb-2">🤔</div>
           <div className="text-sm">No reasoning context available</div>
@@ -19,14 +19,14 @@ export function ReasoningPanel({ diff }: ReasoningPanelProps) {
   }
 
   return (
-    <div className="bg-bg-1 border-l border-border-1 flex flex-col overflow-hidden">
+    <div>
       <div className="px-3.5 py-3 border-b border-border-1 shrink-0">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-2">
           Why This Change?
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-5">
+      <div className="p-3.5 space-y-5">
         {/* Decision Context */}
         {diff.reasoning && diff.reasoning.length > 0 && (
           <section>

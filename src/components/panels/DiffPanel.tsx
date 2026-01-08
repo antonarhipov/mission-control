@@ -367,38 +367,48 @@ export function DiffPanel({
         </div>
 
         {/* Diff viewer */}
-        {selectedFile && <DiffViewer file={selectedFile} diff={fileDiff} />}
+        {selectedFile && (
+          <DiffViewer
+            file={selectedFile}
+            diff={fileDiff}
+            taskId={isV2 && taskV2 ? taskV2.id : undefined}
+            onNavigateToPipeline={onNavigateToPipeline}
+          />
+        )}
         {!selectedFile && availableFiles.length === 0 && (
           <div className="flex items-center justify-center h-full bg-bg-0">
             <p className="text-text-3 text-sm">No files to display</p>
           </div>
         )}
 
-        {/* Specification Context - NEW */}
-        {isV2 && taskV2 && taskV2.specification && selectedFile && onNavigateToPipeline && (() => {
-          // Cast selectedFile to TaskFileChange to access traceability fields
-          const taskFileChange = selectedFile as unknown as TaskFileChange;
+        {/* Right sidebar with decision context and specification context */}
+        <div className="bg-bg-1 border-l border-border-1 overflow-y-auto">
+          {/* Decision Context (Reasoning) - TOP */}
+          <ReasoningPanel diff={fileDiff} />
 
-          // Get criteria that this file implements
-          const relevantCriteria = taskV2.specification.acceptanceCriteria.filter(
-            (ac) => taskFileChange.fulfillsAcceptanceCriteria?.includes(ac.id)
-          );
+          {/* Specification Context - BELOW */}
+          {isV2 && taskV2 && taskV2.specification && selectedFile && onNavigateToPipeline && (() => {
+            // Cast selectedFile to TaskFileChange to access traceability fields
+            const taskFileChange = selectedFile as unknown as TaskFileChange;
 
-          if (relevantCriteria.length === 0) return null;
+            // Get criteria that this file implements
+            const relevantCriteria = taskV2.specification.acceptanceCriteria.filter(
+              (ac) => taskFileChange.fulfillsAcceptanceCriteria?.includes(ac.id)
+            );
 
-          return (
-            <SpecificationTraceability
-              acceptanceCriteria={relevantCriteria}
-              taskId={taskV2.id}
-              onNavigateToSpec={(taskId, criterionId) => {
-                onNavigateToPipeline(taskId, criterionId);
-              }}
-            />
-          );
-        })()}
+            if (relevantCriteria.length === 0) return null;
 
-        {/* Reasoning panel */}
-        <ReasoningPanel diff={fileDiff} />
+            return (
+              <SpecificationTraceability
+                acceptanceCriteria={relevantCriteria}
+                taskId={taskV2.id}
+                onNavigateToSpec={(taskId, criterionId) => {
+                  onNavigateToPipeline(taskId, criterionId);
+                }}
+              />
+            );
+          })()}
+        </div>
       </div>
     </div>
   );

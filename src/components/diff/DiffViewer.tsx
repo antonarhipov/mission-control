@@ -1,15 +1,32 @@
 import { clsx } from 'clsx';
-import { RotateCcw, MessageSquare, Check } from 'lucide-react';
+import { FileEdit, Check } from 'lucide-react';
 import { getAgentById } from '@/data/mockData';
 import type { FileChange, FileDiff } from '@/types';
 
 interface DiffViewerProps {
   file: FileChange;
   diff?: FileDiff;
+  taskId?: string;
+  onNavigateToPipeline?: (taskId: string) => void;
 }
 
-export function DiffViewer({ file, diff }: DiffViewerProps) {
+export function DiffViewer({ file, diff, taskId, onNavigateToPipeline }: DiffViewerProps) {
   const agent = file.agentId ? getAgentById(file.agentId) : null;
+
+  const handleReviseSpec = () => {
+    if (taskId && onNavigateToPipeline) {
+      onNavigateToPipeline(taskId);
+    }
+  };
+
+  const handleApprove = () => {
+    // TODO: Implement approval logic
+    // This should:
+    // 1. Mark the implementation stage as approved
+    // 2. Advance the task to the next pipeline stage (e.g., Testing)
+    // 3. Update task status accordingly
+    console.log('Approve implementation for task:', taskId);
+  };
 
   return (
     <div className="flex flex-col bg-bg-0 overflow-hidden">
@@ -28,15 +45,24 @@ export function DiffViewer({ file, diff }: DiffViewerProps) {
           )}
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-bg-2 border border-border-1 rounded text-text-2 hover:bg-bg-4 hover:text-text-1 transition-colors">
-            <RotateCcw className="w-3.5 h-3.5" />
-            Revert
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-bg-2 border border-border-1 rounded text-text-2 hover:bg-bg-4 hover:text-text-1 transition-colors">
-            <MessageSquare className="w-3.5 h-3.5" />
-            Comment
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-accent-green border-accent-green rounded text-black hover:brightness-110 transition-all">
+          {/* Revise Specification Button */}
+          {taskId && onNavigateToPipeline && (
+            <button
+              onClick={handleReviseSpec}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-bg-2 border border-border-1 rounded text-text-2 hover:bg-bg-3 hover:text-accent-purple hover:border-accent-purple/30 transition-colors"
+              title="Navigate to Pipeline view to revise the specification"
+            >
+              <FileEdit className="w-3.5 h-3.5" />
+              Revise Specification
+            </button>
+          )}
+
+          {/* Approve Button */}
+          <button
+            onClick={handleApprove}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-accent-green border-accent-green rounded text-black hover:brightness-110 transition-all"
+            title="Approve implementation and proceed to next stage"
+          >
             <Check className="w-3.5 h-3.5" />
             Approve
           </button>

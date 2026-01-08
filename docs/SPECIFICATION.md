@@ -20,6 +20,9 @@ Traditional AI coding tools follow a "driver-passenger" model where AI drives an
 3. **Pipeline Workflows**: Each task follows a defined pipeline with visible stages
 4. **Cost Transparency**: Real-time cost tracking per agent, per task, per session
 5. **Reasoning Visibility**: Every code change includes the agent's reasoning and alternatives considered
+6. **Human-Gated Approval**: Critical decisions require human approval before agents proceed
+7. **Specification-Driven**: AI generates specifications; humans approve before implementation
+8. **Bidirectional Traceability**: Every code change links back to specification requirements
 
 ---
 
@@ -66,11 +69,18 @@ The task is the **central organizing unit**. It represents:
 - Automatic worktree creation by agents (hidden from user)
 
 Properties:
-- Status: backlog, in-progress, review, done, blocked
+- Status: backlog, planning, in-progress, review, done, blocked
+  - **backlog**: Not started, no work done yet
+  - **planning**: Specification being generated or awaiting approval
+  - **in-progress**: Specification approved, implementation started
+  - **review**: Implementation done, under review
+  - **done**: Completed
+  - **blocked**: Cannot proceed
 - Priority: critical, high, medium, low
 - Tags: feature, bug, docs, etc.
 - Dependencies: dependsOn (blocked by), blocks (blocking)
 - Metrics: progress %, total cost, file changes, commits
+- Specification: AI-generated technical plan with approval workflow
 
 #### Worktree (Implementation Detail)
 Auto-created by agents within tasks:
@@ -107,6 +117,221 @@ Workflow stages within a task:
 - Stages are assigned to specific agents
 - Cost tracked per stage
 - Progress flows through stages sequentially
+
+---
+
+## Human-Gated Pipeline Workflow
+
+Mission Control implements a **human-in-the-loop** workflow where critical decisions require human approval before agents proceed to the next phase. This ensures humans maintain strategic control while agents handle tactical execution.
+
+### Workflow Overview
+
+```
+1. Task Creation & Specification Generation
+   User creates task → AI generates specification → [Status: planning]
+                                 ↓
+2. Specification Approval (HUMAN GATE #1)
+   Human reviews spec → Approve or Request Changes
+                                 ↓
+                            [Status: in-progress]
+                                 ↓
+3. Implementation
+   Agents implement based on spec → Commit to branches
+                                 ↓
+4. Implementation Review (HUMAN GATE #2)
+   Human reviews implementation → Approve or Revise Spec
+                                 ↓
+5. Advance to Testing Stage
+   Task progresses → Testing agents activated
+```
+
+### Phase 1: Specification Generation & Approval
+
+**Trigger**: User creates a new task with a high-level description
+
+**Process**:
+1. AI analyzes user prompt and context
+2. AI generates `TaskSpecification` containing:
+   - **Summary**: High-level overview of what will be built
+   - **Technical Approach**: Architectural decisions and design
+   - **Acceptance Criteria**: List of requirements that define "done"
+   - **Scope Estimation**: Files affected, complexity level, estimated cost
+   - **Dependencies**: Blocked by other tasks, required libraries
+   - **Risks**: Potential issues to be aware of
+3. Task status set to **"planning"**
+4. Specification status set to **"pending_approval"**
+
+**Human Review** (in Pipeline View):
+- Human reviews AI-generated specification in SpecificationViewer
+- Human can:
+  - **Approve**: Specification locked, agents begin implementation
+  - **Request Changes**: Provide feedback, AI revises specification
+  - **Reject**: Cancel the task entirely
+
+**UI Components**:
+- **SpecificationViewer** (src/components/shared/SpecificationViewer.tsx)
+  - Collapsible sections for each part of spec
+  - Approval status badges
+  - Acceptance criteria with completion tracking
+- **"Review & Approve Specification" button** in Overview task cards
+
+### Phase 2: Implementation with Traceability
+
+**Trigger**: Specification approved → Task status changes to "in-progress"
+
+**Process**:
+1. Agents implement based on approved specification
+2. Each commit and file change links back to acceptance criteria:
+   ```typescript
+   // Acceptance Criterion tracks implementation
+   AcceptanceCriterion {
+     id: 'AC-1',
+     description: 'Order entity persists to database...',
+     implementedIn: {
+       commits: ['8e4d1a9'],
+       files: ['src/main/java/.../Order.java']
+     }
+   }
+
+   // File changes link back to criteria
+   TaskFileChange {
+     path: 'src/main/java/.../Order.java',
+     fulfillsAcceptanceCriteria: ['AC-1', 'AC-2'],
+     specRationale: 'Created Order entity with JPA annotations...'
+   }
+
+   // Commits link to criteria
+   TaskCommit {
+     sha: '8e4d1a9',
+     fulfillsAcceptanceCriteria: ['AC-1', 'AC-2', 'AC-3']
+   }
+   ```
+3. Agents commit to feature branches (commits are permanent)
+4. Changes accumulate until implementation stage completes
+
+**Traceability Features**:
+- **Bidirectional linking**: Navigate from spec → code and code → spec
+- **SpecificationTraceability component** in Diff view shows which criteria each file implements
+- **Deep linking**: Click "View in Specification" to jump to Pipeline view with criterion highlighted
+
+### Phase 3: Implementation Review & Approval
+
+**Trigger**: Human navigates to Diff view to review changes
+
+**Human Review** (in Diff View):
+- Human sees three-column layout:
+  1. **File List** (left) - All changed files
+  2. **Diff Viewer** (center) - Actual code changes
+  3. **Context Panels** (right):
+     - **Decision Context**: Why this change was made (reasoning, alternatives)
+     - **Specification Context**: Which acceptance criteria this implements
+
+**Review Actions**:
+1. **Approve**: Click "Approve" button to advance task to next pipeline stage (e.g., Testing)
+2. **Revise Specification**: If implementation doesn't meet expectations, click "Revise Specification"
+   - Navigates to Pipeline view
+   - Human modifies specification (update acceptance criteria, adjust requirements)
+   - Agents see updated spec and re-implement accordingly
+
+**UI Components**:
+- **DiffViewer Action Buttons** (src/components/diff/DiffViewer.tsx):
+  - **"Approve" button**: Green, advances pipeline stage
+  - **"Revise Specification" button**: Purple, navigates to spec editing
+  - No "Revert" button (handled through spec revision or git operations)
+- **SpecificationTraceability** (src/components/shared/SpecificationTraceability.tsx):
+  - Shows acceptance criteria cards for current file
+  - "View in Specification" button with deep linking
+
+### Workflow Philosophy
+
+**Design Principles**:
+1. **Commits are Permanent**
+   - Agents commit directly to feature branches
+   - No pending approval before commit
+   - Bad implementations → revise spec and re-implement
+
+2. **Spec is Source of Truth**
+   - If implementation doesn't match expectations, revise the spec
+   - Don't comment on individual code lines; feedback goes into spec revisions
+   - Acceptance criteria define what "done" means
+
+3. **Human Gates Progression**
+   - "Approve" button advances task through pipeline stages
+   - Humans don't approve individual commits; they approve stage completion
+   - Example: Implementation stage approved → Testing stage begins
+
+4. **Traceability is Bidirectional**
+   - Navigate from spec to implementation
+   - Navigate from code change back to requirement
+   - Verify every change has a "why"
+
+5. **No Code-Level Comments**
+   - No inline code annotations or review comments
+   - Feedback expressed through specification revisions
+   - Reasoning context captured in diff metadata
+
+**Rejected Patterns**:
+- ❌ "Revert" button in Diff view (use git operations or spec revision)
+- ❌ "Comment" on individual changes (use spec revision with feedback)
+- ❌ Pending approval before commit (agents commit freely, humans gate stages)
+- ❌ Inline code review comments (use specification requirements instead)
+
+### Specification Data Model
+
+```typescript
+interface TaskSpecification {
+  // Approval workflow
+  status: 'draft' | 'pending_approval' | 'approved' | 'changes_requested' | 'rejected';
+  generatedAt: string;
+
+  // Content
+  summary: string;
+  technicalApproach: {
+    repositories: string[];
+    components: string[];
+    design: string;
+  };
+  acceptanceCriteria: AcceptanceCriterion[];
+  estimatedScope: {
+    files: number;
+    complexity: 'simple' | 'moderate' | 'complex';
+    estimatedCost?: number;
+  };
+  dependencies?: {
+    blockedBy?: string[];
+    requires?: string[];
+  };
+  risks?: string[];
+
+  // Approval tracking
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  userFeedback?: string;
+
+  // Revision history
+  revisions?: {
+    version: number;
+    changedAt: string;
+    changes: string;
+  }[];
+}
+
+interface AcceptanceCriterion {
+  id: string;
+  description: string;
+  completed: boolean;
+  completedAt?: string;
+  verifiedBy?: 'agent' | 'human';
+
+  // Traceability
+  implementedIn?: {
+    commits: string[];
+    files: string[];
+  };
+}
+```
 
 ---
 
@@ -156,8 +381,9 @@ Workflow stages within a task:
 **Layout**: Two-column grid (flex | 320px)
 
 #### Main Area: Task Kanban Board
-- Four columns: Backlog, In Progress, Review, Done
+- Five columns: Backlog, **Planning**, In Progress, Review, Done
 - Column headers with counts
+- **Planning column** is highlighted (amber accent) to draw attention to tasks awaiting specification approval
 - Task cards show:
   - Task ID (monospace)
   - Priority indicator (colored dot)
@@ -168,6 +394,7 @@ Workflow stages within a task:
   - Repositories count (e.g., "3 repos")
   - Cost (e.g., "$3.04")
   - Agent avatars if active
+  - **"Review & Approve Specification" button** (prominent amber, only shown for tasks with `specification.status === 'pending_approval'`)
   - "View Pipeline" navigation button (when in progress)
   - "View Dependencies" button (when task has dependencies or blocks)
 - "Add Task" button in header
@@ -220,6 +447,47 @@ Workflow stages within a task:
   - Pause/Resume
   - Create PR (when completed)
   - Mark Complete
+
+**Specification Viewer** (when task has specification):
+- **Header** with specification approval status badge:
+  - Draft (gray with clock icon)
+  - Pending Approval (amber with alert icon)
+  - Approved (green with checkmark icon)
+  - Changes Requested (blue with message icon)
+  - Rejected (red with X icon)
+- **User Request Section** (collapsible):
+  - Original user prompt
+  - Additional context
+  - Linked ticket (if any)
+- **Summary Section** (collapsible):
+  - High-level overview of what will be built
+- **Technical Approach Section** (collapsible):
+  - Repositories involved
+  - Components/files affected
+  - Design decisions and architecture
+- **Acceptance Criteria Section** (collapsible):
+  - Header shows completion progress (e.g., "3/5 • 60%")
+  - Each criterion shows:
+    - Checkbox (completed/incomplete)
+    - ID tag (e.g., [AC-1])
+    - Description
+    - Completion status badge
+    - Completion timestamp (if done)
+  - **Traceability**: Completed criteria can link to implementation files
+- **Scope Estimation Section** (collapsible):
+  - Files count
+  - Complexity indicator
+  - Estimated cost
+- **Dependencies Section** (collapsible, if any):
+  - Blocked by tasks
+  - Required libraries/APIs
+- **Risks Section** (collapsible, if any):
+  - List of potential issues
+- **Approval Section** (collapsible):
+  - Approval/rejection details
+  - User feedback
+  - Revision history
+- **Deep Linking**: When navigated from Diff view, specific acceptance criterion is highlighted with purple ring and pulse animation
 
 **Pipeline Visualization**:
 - Horizontal pipeline stages
@@ -302,7 +570,14 @@ Workflow stages within a task:
 - Selection highlight
 
 #### Center Column: Diff Viewer
-- File header with full path
+- **File header** with:
+  - Full path
+  - Agent attribution (emoji + name)
+  - **Action buttons** (human-gated approval):
+    - **"Revise Specification" button** (gray/purple) - Navigates to Pipeline view for spec modification
+    - **"Approve" button** (green) - Approves implementation and advances to next pipeline stage
+    - No "Revert" button (handled through spec revision or git operations)
+    - No "Comment" button (feedback through spec revision)
 - Hunk navigation
 - Unified diff view with:
   - Line numbers
@@ -310,11 +585,9 @@ Workflow stages within a task:
   - Added lines (green background)
   - Deleted lines (red background)
   - Syntax highlighting
-- Inline controls:
-  - Copy hunk
-  - Accept/Reject hunk (future)
 
-#### Right Column: Reasoning Panel
+#### Right Column: Context Panels (scrollable)
+**1. Decision Context (ReasoningPanel)** - TOP
 - **Why These Changes** section:
   - Decision cards with:
     - Decision type badge
@@ -330,6 +603,21 @@ Workflow stages within a task:
   - Test suite name
   - Pass/fail count with progress bar
   - Individual test status indicators
+
+**2. Specification Context (SpecificationTraceability)** - BELOW
+- **Header**: "Specification Context"
+- Shows acceptance criteria that this file implements
+- Each criterion card shows:
+  - Completion icon (checkmark or clock)
+  - Criterion ID tag (e.g., [AC-1])
+  - Description
+  - Completion status badge
+  - **"View in Specification" button** with ExternalLink icon
+    - Navigates to Pipeline view
+    - Auto-scrolls to and highlights the specific criterion
+    - 3-second purple pulse animation
+- **Summary footer**: "This change implements N acceptance criteria from the approved specification"
+- Only shown for tasks with approved specifications
 
 ---
 
@@ -717,9 +1005,18 @@ src/
 | **Cross-Tab Navigation** | Ability to navigate between tabs while preserving task context |
 | **TaskV2** | Task-centric data model with embedded worktrees (current implementation) |
 | **V1 Compatibility** | Legacy worktree-centric data model (deprecated but still supported) |
+| **TaskSpecification** | AI-generated technical plan that defines what agents will build |
+| **Acceptance Criterion** | Individual requirement that defines success (e.g., "AC-1: User can login with email") |
+| **Specification Status** | Approval state: draft, pending_approval, approved, changes_requested, rejected |
+| **Traceability** | Bidirectional linking between specification requirements and code implementation |
+| **Human Gate** | Approval checkpoint where human reviews and approves before agents proceed |
+| **Planning Status** | Task state where specification is being generated or awaiting human approval |
+| **SpecificationViewer** | Component for reviewing AI-generated specifications in Pipeline view |
+| **SpecificationTraceability** | Component showing which spec requirements a code change implements |
+| **Deep Linking** | Navigation that highlights a specific criterion in the specification |
 
 ---
 
-*Document Version: 2.0 (Task-Centric)*
-*Last Updated: January 2025*
+*Document Version: 3.0 (Human-Gated Pipeline)*
+*Last Updated: January 8, 2026*
 *Project: Mission Control UI Prototype*

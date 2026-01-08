@@ -16,7 +16,7 @@ export function SpecificationTraceability({
   if (acceptanceCriteria.length === 0) return null;
 
   return (
-    <div className="border-t border-border-1 pt-4">
+    <div className="border-t border-border-1 pt-4 px-3.5 pb-3.5">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1 h-1 rounded-full bg-accent-purple" />
         <h3 className="text-[11px] font-bold uppercase tracking-wide text-text-2">

@@ -63,9 +63,138 @@ Each Agent on Task has:
 
 All domain types are centrally defined. Key enums:
 - `WorktreeStatus`: active | paused | conflict | completed | merging
-- `TaskStatus`: backlog | in-progress | review | done | blocked
+- `TaskStatus`: backlog | planning | in-progress | review | done | blocked
+  - **backlog**: Not started, no work done yet
+  - **planning**: Specification being generated or awaiting approval
+  - **in-progress**: Specification approved, implementation started
+  - **review**: Implementation done, under review
+  - **done**: Completed
+  - **blocked**: Cannot proceed
 - `AgentRole`: implementer | architect | tester | reviewer | docs
 - `WorktreeAgentRole`: primary | supporting | waiting | completed
+
+### Human-Gated Pipeline Workflow
+
+The application implements a **human-in-the-loop** workflow where critical decisions require human approval before agents proceed:
+
+#### 1. Task Creation & Specification Phase
+
+```
+User Creates Task
+      ↓
+  [Task Status: backlog]
+      ↓
+AI Generates Specification ──→ TaskSpecification
+      ↓                         - summary
+  [Task Status: planning]       - technicalApproach
+      ↓                         - acceptanceCriteria[]
+User Reviews Spec in            - estimatedScope
+Pipeline View                   - dependencies
+      ↓                         - risks
+ ┌────┴─────┐
+ │          │
+Approve  Request Changes
+ │          │
+ │          └─→ AI Revises Spec ──┐
+ │                                 │
+ │←────────────────────────────────┘
+ ↓
+[Task Status: in-progress]
+Agents Begin Implementation
+```
+
+**Key Components:**
+- **TaskSpecification** (src/types/index.ts): AI-generated specification with approval workflow
+  - `status`: draft | pending_approval | approved | changes_requested | rejected
+  - `acceptanceCriteria`: Array of success criteria that define "done"
+  - `implementedIn`: Links criteria to actual commits/files (traceability)
+- **SpecificationViewer** (src/components/shared/SpecificationViewer.tsx): UI for reviewing/approving specs
+- **SpecificationStatus** badges in Pipeline view show approval state
+
+#### 2. Implementation & Human Review
+
+```
+Agents Implement Based on Spec
+      ↓
+Agents Commit to Branch
+      ↓
+[Human Reviews in Diff View]
+      ↓
+ ┌────┴──────┐
+ │           │
+Approve  Revise Spec
+ │           │
+ │           └─→ Navigate to Pipeline View
+ │               Modify Specification
+ │               Agents Re-implement
+ ↓
+Advance to Testing Stage
+```
+
+**Key Components:**
+- **DiffViewer Actions** (src/components/diff/DiffViewer.tsx):
+  - **"Approve" button**: Gates pipeline progression, advances task to next stage
+  - **"Revise Specification" button**: Navigates to Pipeline view for spec modification
+  - No "Revert" button - complex changes handled through spec revision
+- **SpecificationTraceability** (src/components/shared/SpecificationTraceability.tsx):
+  - Shows which acceptance criteria each file implements
+  - Links from Diff view back to specification in Pipeline view
+  - Enables verification that implementation matches approved spec
+
+#### 3. Specification Traceability
+
+Every change is traceable back to the approved specification:
+
+```
+Specification → Implementation → Verification
+     (AC-1)    →   Order.java   →  Diff View
+                        ↓
+                 Shows "Implements AC-1"
+                        ↓
+              Click "View in Specification"
+                        ↓
+               Pipeline View (highlights AC-1)
+```
+
+**Data Model:**
+```typescript
+// Acceptance criteria track their implementation
+AcceptanceCriterion {
+  id: 'AC-1',
+  description: 'Order entity persists to database...',
+  implementedIn?: {
+    commits: ['8e4d1a9'],
+    files: ['src/.../Order.java']
+  }
+}
+
+// File changes link back to criteria
+TaskFileChange {
+  path: 'src/.../Order.java',
+  fulfillsAcceptanceCriteria: ['AC-1', 'AC-2'],
+  specRationale: 'Created Order entity with JPA annotations...'
+}
+
+// Commits link to criteria
+TaskCommit {
+  sha: '8e4d1a9',
+  fulfillsAcceptanceCriteria: ['AC-1', 'AC-2', 'AC-3']
+}
+```
+
+#### 4. Workflow Philosophy
+
+**Design Principles:**
+1. **Commits are permanent** - Changes are already in version control, not pending approval
+2. **Spec is the source of truth** - If implementation doesn't match expectations, revise the spec
+3. **Human gates progression** - "Approve" advances pipeline stage (Implementation → Testing)
+4. **Traceability is bidirectional** - Navigate from spec to code and code back to spec
+5. **No code-level comments** - Feedback goes into specification revisions, not code annotations
+
+**Rejected Patterns:**
+- ❌ "Revert" button in Diff view (too complex, use git operations or spec revision)
+- ❌ "Comment" on individual changes (use spec revision with feedback instead)
+- ❌ Pending approval before commit (agents commit to branches, humans gate stage progression)
 
 ### Component Structure
 
@@ -246,15 +375,27 @@ taskV2.commits.forEach(commit => {
 ## Panel Descriptions
 
 ### OverviewPanel
-- Task-centric kanban board showing all tasks by status
-- Two-column layout (removed WorktreeSidebar in V2)
+- Task-centric kanban board showing all tasks by status (5 columns)
+  - **Backlog** - Tasks not yet started
+  - **Planning** - Specifications being generated or awaiting approval (highlighted)
+  - **In Progress** - Implementation underway
+  - **Review** - Under review
+  - **Done** - Completed tasks
 - Shows task progress, pipeline stage, repos involved, and cost
+- **"Review & Approve Specification"** button for tasks with pending spec approval
+- **"View Dependencies"** button for tasks with dependencies or blocks
 - Click "→ View Pipeline" to navigate to PipelinesPanel
 
 ### PipelinesPanel (replaces WorktreePanel)
-- Main interface for monitoring task execution
+- Main interface for monitoring task execution and **reviewing specifications**
 - Left sidebar: Filterable task list grouped by status
 - Right area: Comprehensive pipeline detail view
+  - **SpecificationViewer**: Shows AI-generated specification with approval status
+    - User prompt and context
+    - Technical approach and design decisions
+    - **Acceptance Criteria** with completion tracking and traceability
+    - Scope estimation, dependencies, and risks
+    - Approval workflow badges
   - Pipeline stage visualization with costs
   - Repositories involved (multi-repo support)
   - Agent contributions with roles and costs
@@ -262,11 +403,22 @@ taskV2.commits.forEach(commit => {
   - Changed files grouped by repository
 
 ### DiffPanel
-- File-level diff viewer with three modes:
+- File-level diff viewer with **human-gated approval workflow**
+- Three modes:
   - **All Changes**: Show all file changes for selected task
   - **By Commit**: Filter files by specific commit
-- Three-column layout: file list | diff viewer | reasoning panel
-- Shows task context and commit info in header
+- Three-column layout: file list | diff viewer | context panels (right sidebar)
+- **Right Sidebar** (top to bottom):
+  1. **Decision Context** (ReasoningPanel) - Why this change was made
+     - Reasoning decisions, rationales, alternatives
+     - References and test results
+  2. **Specification Context** (SpecificationTraceability) - What spec this implements
+     - Shows acceptance criteria fulfilled by this file
+     - Links to view criterion in Pipeline view (with deep linking and highlighting)
+     - Summary of criteria implemented
+- **Action Buttons** in diff viewer header:
+  - **"Revise Specification"**: Navigate to Pipeline view to modify spec
+  - **"Approve"**: Approve implementation and advance to next pipeline stage
 - Supports both V1 (worktree) and V2 (task) data models
 
 ### CostPanel
