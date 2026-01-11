@@ -1,6 +1,8 @@
 import { TaskListSidebar } from '@/components/shared/TaskListSidebar';
 import { PipelineDetailView } from '@/components/shared/PipelineDetailView';
+import { ContextPanel } from '@/components/shared/ContextPanel';
 import { useDataModel } from '@/hooks/useDataModel';
+import { taskContexts } from '@/data/mockDataV2';
 import type { TaskV2 } from '@/types';
 
 interface PipelinesPanelProps {
@@ -34,8 +36,11 @@ export function PipelinesPanel({
   // Only render if we're in V2 mode and have a valid V2 task
   const selectedTaskV2 = selectedTask && isTaskV2(selectedTask) ? selectedTask : null;
 
+  // Get task context if available
+  const taskContext = selectedTaskV2 ? taskContexts[selectedTaskV2.id] : null;
+
   return (
-    <div className="grid grid-cols-[300px_1fr] h-full">
+    <div className="grid grid-cols-[300px_1fr_350px] h-full">
       <TaskListSidebar
         selectedTaskId={actualSelectedTaskId}
         onSelectTask={onSelectTask}
@@ -57,6 +62,14 @@ export function PipelinesPanel({
           </div>
         </div>
       )}
+
+      <div className="border-l border-border-1 bg-bg-1 overflow-hidden">
+        <div className="p-4 border-b border-border-1 bg-bg-2">
+          <h3 className="text-sm font-semibold text-text-1">Task Context</h3>
+          <p className="text-xs text-text-3 mt-0.5">Organizational knowledge</p>
+        </div>
+        <ContextPanel context={taskContext || null} />
+      </div>
     </div>
   );
 }

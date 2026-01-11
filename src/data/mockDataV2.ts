@@ -11,6 +11,13 @@ import type {
   ModelPricing,
   AgentConfig,
   FileDiff,
+  Service,
+  TaskContext,
+  Policy,
+  AgentPermission,
+  PolicyViolation,
+  QualityScorecard,
+  AuditLogEntry,
 } from '@/types';
 
 // =============================================================================
@@ -419,6 +426,8 @@ export const tasksV2: TaskV2[] = [
     dependsOn: ['ORD-138', 'ORD-139'],
     blocks: ['ORD-145', 'ORD-146'],
 
+    affectedServices: ['svc-order'],
+
     createdAt: '2 hours ago',
     startedAt: '2 hours ago',
   },
@@ -720,6 +729,8 @@ export const tasksV2: TaskV2[] = [
     dependsOn: [],
     blocks: [],
 
+    affectedServices: ['svc-auth', 'svc-user'],
+
     createdAt: '1.5 hours ago',
     startedAt: '1 hour ago',
   },
@@ -930,6 +941,8 @@ export const tasksV2: TaskV2[] = [
     dependsOn: [],
     blocks: [],
 
+    affectedServices: ['svc-order', 'svc-database'],
+
     createdAt: '1.5 hours ago',
     startedAt: '1.5 hours ago',
   },
@@ -1110,6 +1123,8 @@ export const tasksV2: TaskV2[] = [
     dependsOn: [],
     blocks: [],
 
+    affectedServices: ['svc-order', 'svc-user'],
+
     createdAt: '3 hours ago',
     startedAt: '3 hours ago',
     completedAt: '1 hour ago',
@@ -1149,6 +1164,8 @@ export const tasksV2: TaskV2[] = [
 
     dependsOn: ['ORD-142'],
     blocks: [],
+
+    affectedServices: ['svc-order'],
 
     createdAt: '1 day ago',
   },
@@ -1260,6 +1277,8 @@ export const tasksV2: TaskV2[] = [
 
     dependsOn: ['AUTH-101'],
     blocks: [],
+
+    affectedServices: ['svc-auth', 'svc-user'],
 
     createdAt: '30 minutes ago',
   },
@@ -2196,3 +2215,755 @@ export const fileDiffs: Record<string, FileDiff> = {
     ],
   },
 };
+
+// =============================================================================
+// V2.5: SERVICES - Software Catalog
+// =============================================================================
+
+export const services: Service[] = [
+  {
+    id: 'svc-auth',
+    name: 'auth-service',
+    description: 'Authentication and authorization service with OAuth2 support',
+    ownerTeam: 'team-backend',
+    tier: 'critical',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: ['svc-user', 'svc-database'],
+      usedBy: ['svc-order', 'svc-payment', 'svc-admin'],
+      integrations: [
+        { type: 'database', description: 'Postgres user credentials table', target: 'svc-database' },
+        { type: 'cache', description: 'Redis for session tokens' },
+      ],
+    },
+    metrics: {
+      testCoverage: 78,
+      openBugs: 3,
+      techDebtScore: 25,
+      linesOfCode: 4500,
+    },
+    activeTasks: ['AUTH-102'],
+    recentCommits: [
+      {
+        sha: 'a1b2c3d',
+        message: 'Add 2FA support',
+        author: 'Alice',
+        timestamp: '2 hours ago',
+      },
+    ],
+    lastDeployed: '1 day ago',
+  },
+  {
+    id: 'svc-user',
+    name: 'user-service',
+    description: 'User profile and account management',
+    ownerTeam: 'team-backend',
+    tier: 'high',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: ['svc-database'],
+      usedBy: ['svc-auth', 'svc-order', 'svc-notification'],
+      integrations: [
+        { type: 'database', description: 'User profiles and preferences' },
+        { type: 'storage', description: 'Profile images in S3' },
+      ],
+    },
+    metrics: {
+      testCoverage: 82,
+      openBugs: 2,
+      techDebtScore: 18,
+      linesOfCode: 3200,
+    },
+    activeTasks: [],
+    recentCommits: [
+      {
+        sha: 'e4f5g6h',
+        message: 'Update user schema',
+        author: 'Bob',
+        timestamp: '5 hours ago',
+      },
+    ],
+    lastDeployed: '2 hours ago',
+  },
+  {
+    id: 'svc-order',
+    name: 'order-service',
+    description: 'Order processing and management',
+    ownerTeam: 'team-backend',
+    tier: 'critical',
+    repositories: ['repo-order-service'],
+    dependencies: {
+      dependsOn: ['svc-auth', 'svc-user', 'svc-payment', 'svc-database'],
+      usedBy: ['svc-notification', 'svc-analytics'],
+      integrations: [
+        { type: 'api', description: 'Payment processing API', target: 'svc-payment' },
+        { type: 'message-queue', description: 'Order events to RabbitMQ' },
+        { type: 'database', description: 'Orders and line items' },
+      ],
+    },
+    metrics: {
+      testCoverage: 75,
+      openBugs: 5,
+      techDebtScore: 35,
+      linesOfCode: 6800,
+    },
+    activeTasks: ['ORD-142', 'ORD-145'],
+    recentCommits: [
+      {
+        sha: '8e4d1a9',
+        message: 'Add Order entity with JPA',
+        author: 'impl-1',
+        timestamp: '45 minutes ago',
+      },
+    ],
+    lastDeployed: '3 hours ago',
+  },
+  {
+    id: 'svc-payment',
+    name: 'payment-service',
+    description: 'Payment processing with Stripe integration',
+    ownerTeam: 'team-backend',
+    tier: 'critical',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: ['svc-auth', 'svc-database'],
+      usedBy: ['svc-order'],
+      integrations: [
+        { type: 'api', description: 'Stripe payment gateway' },
+        { type: 'database', description: 'Payment transactions log' },
+      ],
+    },
+    metrics: {
+      testCoverage: 88,
+      openBugs: 1,
+      techDebtScore: 12,
+      linesOfCode: 2400,
+    },
+    activeTasks: [],
+    recentCommits: [
+      {
+        sha: 'i7j8k9l',
+        message: 'Update Stripe SDK',
+        author: 'Charlie',
+        timestamp: '1 day ago',
+      },
+    ],
+    lastDeployed: '6 hours ago',
+  },
+  {
+    id: 'svc-notification',
+    name: 'notification-service',
+    description: 'Email and SMS notifications',
+    ownerTeam: 'team-backend',
+    tier: 'medium',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: ['svc-user'],
+      usedBy: [],
+      integrations: [
+        { type: 'api', description: 'SendGrid for email' },
+        { type: 'api', description: 'Twilio for SMS' },
+        { type: 'message-queue', description: 'Consumes notification events from RabbitMQ' },
+      ],
+    },
+    metrics: {
+      testCoverage: 65,
+      openBugs: 4,
+      techDebtScore: 42,
+      linesOfCode: 1800,
+    },
+    activeTasks: [],
+    recentCommits: [
+      {
+        sha: 'm0n1o2p',
+        message: 'Add SMS retry logic',
+        author: 'Diana',
+        timestamp: '3 days ago',
+      },
+    ],
+    lastDeployed: '1 week ago',
+  },
+  {
+    id: 'svc-search',
+    name: 'search-service',
+    description: 'Product search with Elasticsearch',
+    ownerTeam: 'team-backend',
+    tier: 'medium',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: [],
+      usedBy: [],
+      integrations: [
+        { type: 'database', description: 'Elasticsearch cluster' },
+        { type: 'message-queue', description: 'Product index updates from Kafka' },
+      ],
+    },
+    metrics: {
+      testCoverage: 70,
+      openBugs: 2,
+      techDebtScore: 28,
+      linesOfCode: 2100,
+    },
+    activeTasks: [],
+    recentCommits: [],
+    lastDeployed: '2 weeks ago',
+  },
+  {
+    id: 'svc-analytics',
+    name: 'analytics-service',
+    description: 'Business analytics and reporting',
+    ownerTeam: 'team-backend',
+    tier: 'low',
+    repositories: ['repo-api-gateway'],
+    dependencies: {
+      dependsOn: ['svc-order', 'svc-user'],
+      usedBy: [],
+      integrations: [
+        { type: 'database', description: 'Analytics data warehouse' },
+        { type: 'message-queue', description: 'Event stream from Kafka' },
+      ],
+    },
+    metrics: {
+      testCoverage: 55,
+      openBugs: 8,
+      techDebtScore: 58,
+      linesOfCode: 3600,
+    },
+    activeTasks: [],
+    recentCommits: [],
+    lastDeployed: '1 month ago',
+  },
+  {
+    id: 'svc-admin',
+    name: 'admin-service',
+    description: 'Admin dashboard and management tools',
+    ownerTeam: 'team-backend',
+    tier: 'medium',
+    repositories: ['repo-frontend'],
+    dependencies: {
+      dependsOn: ['svc-auth', 'svc-user', 'svc-order'],
+      usedBy: [],
+      integrations: [
+        { type: 'api', description: 'Calls all backend services for admin operations' },
+      ],
+    },
+    metrics: {
+      testCoverage: 68,
+      openBugs: 6,
+      techDebtScore: 38,
+      linesOfCode: 4200,
+    },
+    activeTasks: [],
+    recentCommits: [],
+    lastDeployed: '4 days ago',
+  },
+  {
+    id: 'svc-database',
+    name: 'database-service',
+    description: 'Shared PostgreSQL database cluster',
+    ownerTeam: 'team-infra',
+    tier: 'critical',
+    repositories: [],
+    dependencies: {
+      dependsOn: [],
+      usedBy: ['svc-auth', 'svc-user', 'svc-order', 'svc-payment'],
+      integrations: [
+        { type: 'database', description: 'Postgres 14 cluster with replication' },
+      ],
+    },
+    metrics: {
+      testCoverage: 0,
+      openBugs: 0,
+      techDebtScore: 0,
+      linesOfCode: 0,
+    },
+    activeTasks: [],
+    recentCommits: [],
+  },
+];
+
+// =============================================================================
+// V2.5: TASK CONTEXTS - Organizational Knowledge
+// =============================================================================
+
+export const taskContexts: Record<string, TaskContext> = {
+  'ORD-142': {
+    taskId: 'ORD-142',
+    relatedTasks: [
+      {
+        id: 'ORD-138',
+        title: 'Implement Customer entity',
+        outcome: 'success',
+        lessonsLearned: 'Used JPA lazy loading for relationships to avoid N+1 queries. Remember to add @JsonIgnoreProperties to prevent circular references in REST responses.',
+        completedAt: '3 days ago',
+      },
+    ],
+    affectedServices: [
+      {
+        id: 'svc-order',
+        name: 'order-service',
+        description: 'Order processing and management',
+        owner: 'Backend Squad',
+        criticalityLevel: 'critical',
+      },
+    ],
+    recentChanges: [
+      {
+        file: 'src/main/java/com/acme/orders/entity/Customer.java',
+        author: 'impl-1',
+        timestamp: '3 days ago',
+        summary: 'Added Customer entity with lazy loading',
+        commitSha: '7c8d9e0',
+      },
+    ],
+    knownIssues: [
+      {
+        description: 'Hibernate lazy initialization exceptions occur when accessing relationships outside transaction scope',
+        workaround: 'Use @Transactional annotation on service methods or fetch join in queries',
+        reportedBy: 'arch-1',
+        reportedAt: '1 week ago',
+      },
+    ],
+    codePatterns: [
+      {
+        pattern: 'JPA Entity Pattern',
+        description: 'Use @Entity with @Table for explicit table naming. Use @GeneratedValue(strategy = GenerationType.IDENTITY) for auto-increment IDs.',
+        example: '@Entity\n@Table(name = "orders")\npublic class Order { @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id; }',
+        category: 'architecture',
+      },
+      {
+        pattern: 'Lazy Loading',
+        description: 'Use FetchType.LAZY for all relationships to avoid loading unnecessary data. Use fetch joins in queries when needed.',
+        example: '@OneToMany(mappedBy = "order", fetch = FetchType.LAZY)',
+        category: 'performance',
+      },
+    ],
+  },
+  'AUTH-102': {
+    taskId: 'AUTH-102',
+    relatedTasks: [
+      {
+        id: 'AUTH-101',
+        title: 'Implement basic authentication',
+        outcome: 'success',
+        lessonsLearned: 'JWT tokens work well but need proper expiration and refresh token flow. Store tokens in httpOnly cookies for security.',
+        completedAt: '2 weeks ago',
+      },
+    ],
+    affectedServices: [
+      {
+        id: 'svc-auth',
+        name: 'auth-service',
+        description: 'Authentication and authorization service',
+        owner: 'Backend Squad',
+        criticalityLevel: 'critical',
+      },
+      {
+        id: 'svc-user',
+        name: 'user-service',
+        description: 'User profile and account management',
+        owner: 'Backend Squad',
+        criticalityLevel: 'high',
+      },
+    ],
+    recentChanges: [
+      {
+        file: 'src/main/java/com/acme/auth/controller/AuthController.java',
+        author: 'impl-1',
+        timestamp: '2 weeks ago',
+        summary: 'Added JWT authentication endpoints',
+        commitSha: 'f1a2b3c',
+      },
+    ],
+    knownIssues: [
+      {
+        description: 'OAuth2 tokens from Google expire after 1 hour and need refresh',
+        workaround: 'Implement refresh token rotation with secure storage in database',
+        reportedBy: 'arch-1',
+        reportedAt: '1 week ago',
+      },
+      {
+        description: 'Rate limiting not implemented on auth endpoints - vulnerable to brute force',
+        workaround: 'Add Redis-based rate limiter before production deployment',
+        reportedBy: 'rev-1',
+        reportedAt: '3 days ago',
+      },
+    ],
+    codePatterns: [
+      {
+        pattern: 'Secure Password Storage',
+        description: 'Always hash passwords with BCrypt (cost factor 10-12). Never store plaintext passwords.',
+        example: 'BCrypt.hashpw(password, BCrypt.gensalt(12))',
+        category: 'security',
+      },
+      {
+        pattern: 'OAuth2 State Parameter',
+        description: 'Use cryptographically random state parameter to prevent CSRF attacks in OAuth flow.',
+        example: 'String state = UUID.randomUUID().toString();',
+        category: 'security',
+      },
+    ],
+  },
+  'ORD-145': {
+    taskId: 'ORD-145',
+    relatedTasks: [
+      {
+        id: 'ORD-142',
+        title: 'Implement Order entity',
+        outcome: 'success',
+        lessonsLearned: 'Integration tests with @SpringBootTest are slow. Use @DataJpaTest for repository tests and mock services in controller tests.',
+        completedAt: 'in progress',
+      },
+    ],
+    affectedServices: [
+      {
+        id: 'svc-order',
+        name: 'order-service',
+        description: 'Order processing and management',
+        owner: 'Backend Squad',
+        criticalityLevel: 'critical',
+      },
+    ],
+    recentChanges: [],
+    knownIssues: [
+      {
+        description: 'Test database H2 has different SQL dialect than production Postgres',
+        workaround: 'Use Testcontainers with actual Postgres for integration tests',
+        reportedBy: 'test-1',
+        reportedAt: '1 week ago',
+      },
+    ],
+    codePatterns: [
+      {
+        pattern: 'Repository Testing',
+        description: 'Use @DataJpaTest for repository layer tests - it provides lightweight in-memory database and transaction rollback.',
+        example: '@DataJpaTest\nclass OrderRepositoryTest { @Autowired OrderRepository repo; }',
+        category: 'testing',
+      },
+      {
+        pattern: 'Controller Testing',
+        description: 'Use @WebMvcTest with @MockBean for controller tests. Mock service layer dependencies.',
+        example: '@WebMvcTest(OrderController.class)\n@MockBean OrderService service;',
+        category: 'testing',
+      },
+    ],
+  },
+};
+
+// =============================================================================
+// V2.5: POLICIES & PERMISSIONS - Guardrails
+// =============================================================================
+
+export const policies: Policy[] = [
+  {
+    id: 'pol-no-prod-changes',
+    name: 'No Direct Production Changes',
+    description: 'Prevent agents from making direct changes to production branches (main/master)',
+    enabled: true,
+    severity: 'error',
+    rule: 'Agents cannot commit to main or master branches',
+    action: 'block',
+    appliesTo: {
+      agents: [], // all agents
+      filePatterns: [],
+      operations: ['write', 'merge'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-01',
+    lastModified: '2024-01-15',
+  },
+  {
+    id: 'pol-db-migrations-approval',
+    name: 'Database Migrations Require Approval',
+    description: 'Changes to database migration files must be reviewed by humans before execution',
+    enabled: true,
+    severity: 'warning',
+    rule: 'Changes to **/migrations/** or **/*.sql files require human approval',
+    action: 'require-approval',
+    appliesTo: {
+      filePatterns: ['**/migrations/**', '**/*.sql', '**/schema.sql'],
+      operations: ['write', 'delete'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-05',
+    lastModified: '2024-01-20',
+  },
+  {
+    id: 'pol-critical-services-review',
+    name: 'Critical Services Need Extra Review',
+    description: 'Changes to critical services (auth, payment, order) require architect review',
+    enabled: true,
+    severity: 'warning',
+    rule: 'Changes to auth-service, payment-service, or order-service require architect approval',
+    action: 'require-approval',
+    appliesTo: {
+      services: ['svc-auth', 'svc-payment', 'svc-order'],
+      operations: ['write', 'deploy'],
+    },
+    createdBy: 'arch-1',
+    createdAt: '2024-01-10',
+    lastModified: '2024-01-25',
+  },
+  {
+    id: 'pol-dependency-updates',
+    name: 'Dependency Updates Need Validation',
+    description: 'Major version upgrades of dependencies require human validation',
+    enabled: true,
+    severity: 'warning',
+    rule: 'Changes to package.json, pom.xml, requirements.txt require approval',
+    action: 'require-approval',
+    appliesTo: {
+      filePatterns: ['**/package.json', '**/pom.xml', '**/requirements.txt', '**/Cargo.toml'],
+      operations: ['write'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-08',
+    lastModified: '2024-01-22',
+  },
+  {
+    id: 'pol-no-core-deletion',
+    name: 'No Deletion of Core Files',
+    description: 'Core configuration and infrastructure files cannot be deleted',
+    enabled: true,
+    severity: 'error',
+    rule: 'Cannot delete config files, docker files, or CI/CD configurations',
+    action: 'block',
+    appliesTo: {
+      filePatterns: ['**/Dockerfile', '**/.github/**', '**/config/**', '**/.env*'],
+      operations: ['delete'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-03',
+    lastModified: '2024-01-18',
+  },
+  {
+    id: 'pol-schema-changes',
+    name: 'Schema Changes Require Architect',
+    description: 'Database schema modifications need architect approval',
+    enabled: true,
+    severity: 'warning',
+    rule: 'Entity/model changes require architect review',
+    action: 'require-approval',
+    appliesTo: {
+      agents: ['impl-1'], // implementers need approval
+      filePatterns: ['**/entity/**', '**/models/**', '**/schema/**'],
+      operations: ['write', 'delete'],
+    },
+    createdBy: 'arch-1',
+    createdAt: '2024-01-12',
+    lastModified: '2024-01-28',
+  },
+  {
+    id: 'pol-security-files',
+    name: 'Security Files Need Security Team',
+    description: 'Authentication, authorization, encryption code requires security review',
+    enabled: true,
+    severity: 'error',
+    rule: 'Security-critical files require security team approval',
+    action: 'require-approval',
+    appliesTo: {
+      filePatterns: ['**/auth/**', '**/security/**', '**/crypto/**'],
+      operations: ['write', 'delete'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-14',
+    lastModified: '2024-01-29',
+  },
+  {
+    id: 'pol-prod-config',
+    name: 'Production Config Changes',
+    description: 'Production configuration changes require approval',
+    enabled: true,
+    severity: 'warning',
+    rule: 'Production environment configs need approval',
+    action: 'require-approval',
+    appliesTo: {
+      filePatterns: ['**/config/prod.yml', '**/config/production.js', '**/.env.production'],
+      operations: ['write'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-16',
+    lastModified: '2024-01-30',
+  },
+  {
+    id: 'pol-large-files',
+    name: 'Large File Uploads',
+    description: 'Notify when agents add large files (>1MB) to repository',
+    enabled: true,
+    severity: 'info',
+    rule: 'Notify when files >1MB are added',
+    action: 'notify',
+    appliesTo: {
+      operations: ['write'],
+    },
+    createdBy: 'admin',
+    createdAt: '2024-01-20',
+    lastModified: '2024-02-01',
+  },
+  {
+    id: 'pol-external-api',
+    name: 'External API Changes',
+    description: 'Changes to public API contracts require approval',
+    enabled: true,
+    severity: 'warning',
+    rule: 'API controller changes need review',
+    action: 'require-approval',
+    appliesTo: {
+      filePatterns: ['**/controller/**', '**/api/**', '**/routes/**'],
+      operations: ['write', 'delete'],
+    },
+    createdBy: 'arch-1',
+    createdAt: '2024-01-22',
+    lastModified: '2024-02-03',
+  },
+];
+
+export const agentPermissions: AgentPermission[] = [
+  {
+    agentId: 'impl-1',
+    globalPermissions: {
+      canRead: true,
+      canWrite: true,
+      canDelete: false,
+      canDeploy: false,
+      canMergeToMain: false,
+      canRollback: false,
+      requiresReview: false,
+    },
+    servicePermissions: {
+      'svc-auth': {
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
+        canDeploy: false,
+        canMergeToMain: false,
+        canRollback: false,
+        requiresReview: true, // critical service
+      },
+      'svc-payment': {
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
+        canDeploy: false,
+        canMergeToMain: false,
+        canRollback: false,
+        requiresReview: true, // critical service
+      },
+    },
+  },
+  {
+    agentId: 'arch-1',
+    globalPermissions: {
+      canRead: true,
+      canWrite: true,
+      canDelete: false,
+      canDeploy: false,
+      canMergeToMain: false,
+      canRollback: false,
+      requiresReview: false,
+    },
+    servicePermissions: {},
+  },
+  {
+    agentId: 'test-1',
+    globalPermissions: {
+      canRead: true,
+      canWrite: true,
+      canDelete: false,
+      canDeploy: false,
+      canMergeToMain: false,
+      canRollback: false,
+      requiresReview: false,
+    },
+    servicePermissions: {},
+  },
+  {
+    agentId: 'rev-1',
+    globalPermissions: {
+      canRead: true,
+      canWrite: false,
+      canDelete: false,
+      canDeploy: false,
+      canMergeToMain: true, // reviewer can merge
+      canRollback: true,
+      requiresReview: false,
+    },
+    servicePermissions: {},
+  },
+  {
+    agentId: 'docs-1',
+    globalPermissions: {
+      canRead: true,
+      canWrite: true,
+      canDelete: false,
+      canDeploy: false,
+      canMergeToMain: false,
+      canRollback: false,
+      requiresReview: false,
+    },
+    servicePermissions: {},
+  },
+];
+
+export const policyViolations: PolicyViolation[] = [
+  {
+    id: 'viol-1',
+    policyId: 'pol-no-prod-changes',
+    policyName: 'No Direct Production Changes',
+    agentId: 'impl-1',
+    agentName: 'Implementer',
+    action: 'merge to main',
+    target: 'auth-service/main',
+    timestamp: '2 hours ago',
+    outcome: 'blocked',
+    reasoning: 'Agent attempted to merge feature branch directly to main without creating a pull request for review',
+  },
+  {
+    id: 'viol-2',
+    policyId: 'pol-db-migrations-approval',
+    policyName: 'Database Migrations Require Approval',
+    agentId: 'impl-1',
+    agentName: 'Implementer',
+    action: 'write',
+    target: 'order-service/migrations/001_add_orders_table.sql',
+    timestamp: '45 minutes ago',
+    outcome: 'pending-approval',
+    reasoning: 'Agent created new database migration file to add orders table schema - awaiting human approval before execution',
+  },
+  {
+    id: 'viol-3',
+    policyId: 'pol-critical-services-review',
+    policyName: 'Critical Services Need Extra Review',
+    agentId: 'impl-1',
+    agentName: 'Implementer',
+    action: 'write',
+    target: 'auth-service/src/auth/oauth.ts',
+    timestamp: '1 hour ago',
+    outcome: 'pending-approval',
+    reasoning: 'Agent modified OAuth implementation in critical auth-service - architect review required before deployment',
+  },
+  {
+    id: 'viol-4',
+    policyId: 'pol-large-files',
+    policyName: 'Large File Uploads',
+    agentId: 'docs-1',
+    agentName: 'Documentation',
+    action: 'write',
+    target: 'docs/architecture-diagram.png',
+    timestamp: '3 hours ago',
+    outcome: 'approved',
+    reasoning: 'Agent added 2.3MB architecture diagram image - notified for review (consider using external storage for large assets)',
+  },
+  {
+    id: 'viol-5',
+    policyId: 'pol-dependency-updates',
+    policyName: 'Dependency Updates Need Validation',
+    agentId: 'impl-1',
+    agentName: 'Implementer',
+    action: 'write',
+    target: 'order-service/pom.xml',
+    timestamp: '30 minutes ago',
+    outcome: 'pending-approval',
+    reasoning: 'Agent upgraded Spring Boot from 2.7.x to 3.0.x (major version) - requires validation of breaking changes and migration path',
+  },
+];

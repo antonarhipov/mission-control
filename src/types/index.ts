@@ -509,4 +509,308 @@ export interface TaskV2 {
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
+
+  // v2.5: Services affected by this task
+  affectedServices?: string[]; // service IDs
 }
+
+// =============================================================================
+// V2.5 TYPES - Port.io-Inspired Features
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Context & Knowledge
+// -----------------------------------------------------------------------------
+
+/**
+ * TaskContext - Organizational knowledge relevant to a task
+ * Provides agents and humans with historical context and patterns
+ */
+export interface TaskContext {
+  taskId: string;
+
+  // Related past work
+  relatedTasks: RelatedTask[];
+
+  // Services/repos affected by this task
+  affectedServices: AffectedService[];
+
+  // Recent changes to files this task will modify
+  recentChanges: RecentChange[];
+
+  // Known issues and gotchas
+  knownIssues: KnownIssue[];
+
+  // Coding patterns to follow
+  codePatterns: CodePattern[];
+}
+
+export interface RelatedTask {
+  id: string;
+  title: string;
+  outcome: 'success' | 'issues' | 'abandoned';
+  lessonsLearned: string;
+  completedAt: string;
+}
+
+export interface AffectedService {
+  id: string;
+  name: string;
+  description: string;
+  owner: string;
+  criticalityLevel: 'critical' | 'high' | 'medium' | 'low';
+}
+
+export interface RecentChange {
+  file: string;
+  author: string;
+  timestamp: string;
+  summary: string;
+  commitSha: string;
+}
+
+export interface KnownIssue {
+  description: string;
+  workaround: string;
+  reportedBy: string;
+  reportedAt: string;
+}
+
+export interface CodePattern {
+  pattern: string;
+  description: string;
+  example: string;
+  category: 'architecture' | 'testing' | 'error-handling' | 'performance' | 'security';
+}
+
+// -----------------------------------------------------------------------------
+// Service Registry
+// -----------------------------------------------------------------------------
+
+/**
+ * Service - Represents a microservice or application component
+ * Part of the software catalog for tracking dependencies and ownership
+ */
+export interface Service {
+  id: string;
+  name: string;
+  description: string;
+  ownerTeam: string;
+  tier: 'critical' | 'high' | 'medium' | 'low';
+
+  // Repository associations
+  repositories: string[]; // repository IDs
+
+  // Service dependencies
+  dependencies: ServiceDependencies;
+
+  // Quality and health metrics
+  metrics: ServiceMetrics;
+
+  // Active work
+  activeTasks: string[]; // task IDs currently modifying this service
+
+  // History
+  recentCommits: Array<{
+    sha: string;
+    message: string;
+    author: string;
+    timestamp: string;
+  }>;
+
+  lastDeployed?: string;
+}
+
+export interface ServiceDependencies {
+  dependsOn: string[]; // upstream service IDs (services this depends on)
+  usedBy: string[]; // downstream service IDs (services that depend on this)
+  integrations: ServiceIntegration[];
+}
+
+export interface ServiceIntegration {
+  type: 'api' | 'database' | 'message-queue' | 'cache' | 'storage';
+  description: string;
+  target?: string; // service ID if applicable
+}
+
+export interface ServiceMetrics {
+  testCoverage: number; // percentage
+  openBugs: number;
+  techDebtScore: number; // 0-100 (lower is better)
+  linesOfCode: number;
+}
+
+// -----------------------------------------------------------------------------
+// Guardrails & Policies
+// -----------------------------------------------------------------------------
+
+/**
+ * Policy - Defines guardrails for agent behavior
+ * Controls what agents can do and when human approval is required
+ */
+export interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  severity: 'error' | 'warning' | 'info';
+
+  // What this policy does
+  rule: string; // human-readable description
+  action: 'block' | 'require-approval' | 'notify';
+
+  // When this policy applies
+  appliesTo: PolicyScope;
+
+  // Metadata
+  createdBy: string;
+  createdAt: string;
+  lastModified: string;
+}
+
+export interface PolicyScope {
+  agents?: string[]; // specific agent IDs (empty = all agents)
+  services?: string[]; // specific service IDs (empty = all services)
+  operations?: PolicyOperation[]; // specific operations
+  filePatterns?: string[]; // glob patterns (e.g., "**/*.sql", "**/migrations/**")
+}
+
+export type PolicyOperation = 'read' | 'write' | 'delete' | 'deploy' | 'merge' | 'rollback';
+
+/**
+ * AgentPermission - Defines what an agent is allowed to do
+ * Can be defined globally or per-service
+ */
+export interface AgentPermission {
+  agentId: string;
+
+  // Global permissions
+  globalPermissions: PermissionSet;
+
+  // Service-specific overrides
+  servicePermissions: Record<string, PermissionSet>;
+}
+
+export interface PermissionSet {
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  canDeploy: boolean;
+  canMergeToMain: boolean;
+  canRollback: boolean;
+  requiresReview: boolean; // if true, all actions need human approval
+}
+
+/**
+ * PolicyViolation - Recorded when an agent action violates a policy
+ */
+export interface PolicyViolation {
+  id: string;
+  policyId: string;
+  policyName: string;
+  agentId: string;
+  agentName: string;
+  action: string;
+  target: string; // file, service, or resource
+  timestamp: string;
+  outcome: 'blocked' | 'pending-approval' | 'approved' | 'rejected';
+  reasoning: string; // agent's explanation of what it was trying to do
+}
+
+// -----------------------------------------------------------------------------
+// Quality & Audit
+// -----------------------------------------------------------------------------
+
+/**
+ * QualityScorecard - Code quality metrics for a service or task
+ */
+export interface QualityScorecard {
+  entityId: string; // service ID or task ID
+  entityType: 'service' | 'task';
+
+  testCoverage: QualityMetric;
+  documentation: DocumentationMetric;
+  security: SecurityMetric;
+  codeQuality: CodeQualityMetric;
+
+  overallScore: number; // 0-100
+  lastUpdated: string;
+}
+
+export interface QualityMetric {
+  current: number; // current value (e.g., 75% test coverage)
+  target: number; // target value (e.g., 80% test coverage)
+  status: 'pass' | 'warn' | 'fail';
+  trend?: 'improving' | 'stable' | 'declining';
+}
+
+export interface DocumentationMetric {
+  hasReadme: boolean;
+  hasAPIDoc: boolean;
+  hasRunbook: boolean;
+  hasTechDesign: boolean;
+  status: 'pass' | 'warn' | 'fail';
+}
+
+export interface SecurityMetric {
+  vulnerabilities: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  status: 'pass' | 'warn' | 'fail';
+}
+
+export interface CodeQualityMetric {
+  lintErrors: number;
+  codeSmells: number;
+  duplicatedLines: number;
+  techDebt: string; // e.g., "2 days", "1 week"
+  status: 'pass' | 'warn' | 'fail';
+}
+
+/**
+ * AuditLogEntry - Complete record of an agent action
+ */
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+
+  // Who
+  agentId: string;
+  agentName: string;
+  agentRole: string;
+
+  // What
+  action: AuditAction;
+  target: string; // file path, service name, or resource identifier
+  taskId?: string; // if action was part of a task
+
+  // Outcome
+  outcome: 'success' | 'blocked' | 'failed' | 'pending-approval';
+  reasoning: string; // agent's explanation
+
+  // Policy enforcement
+  policiesChecked: string[]; // policy IDs that were evaluated
+  policyViolation?: string; // policy ID if blocked
+
+  // Approval workflow
+  requiresApproval: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+
+  // Additional context
+  metadata: Record<string, any>;
+}
+
+export type AuditAction =
+  | 'generated-specification'
+  | 'created-commit'
+  | 'modified-file'
+  | 'deleted-file'
+  | 'ran-tests'
+  | 'deployed-changes'
+  | 'rolled-back'
+  | 'requested-approval'
+  | 'merged-pr';

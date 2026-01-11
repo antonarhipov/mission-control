@@ -5,10 +5,11 @@ import { FileList } from '@/components/diff/FileList';
 import { DiffViewer } from '@/components/diff/DiffViewer';
 import { ReasoningPanel } from '@/components/diff/ReasoningPanel';
 import { SpecificationTraceability } from '@/components/shared/SpecificationTraceability';
+import { ContextPanel } from '@/components/shared/ContextPanel';
 import { WorktreeStatusBadge } from '@/components/shared/WorktreeCard';
 import { useDataModel } from '@/hooks/useDataModel';
 import { worktrees, getAgentById, getTaskById } from '@/data/mockData';
-import { fileDiffs } from '@/data/mockDataV2';
+import { fileDiffs, taskContexts } from '@/data/mockDataV2';
 import type { Worktree, FileChange, TaskV2, TaskFileChange } from '@/types';
 
 interface DiffPanelProps {
@@ -406,6 +407,23 @@ export function DiffPanel({
                   onNavigateToPipeline(taskId, criterionId);
                 }}
               />
+            );
+          })()}
+
+          {/* Task Context - BELOW Specification */}
+          {isV2 && taskV2 && (() => {
+            const taskContext = taskContexts[taskV2.id];
+            if (!taskContext) return null;
+
+            return (
+              <div className="border-t border-border-1">
+                <div className="px-4 py-3 bg-bg-2 border-b border-border-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-text-2">
+                    Task Context
+                  </h3>
+                </div>
+                <ContextPanel context={taskContext} />
+              </div>
             );
           })()}
         </div>

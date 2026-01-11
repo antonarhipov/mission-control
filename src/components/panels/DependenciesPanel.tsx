@@ -10,6 +10,8 @@ import {
   Users,
   X,
   AlertCircle,
+  Server,
+  Layers,
 } from 'lucide-react';
 import {
   calculateCriticalPath,
@@ -18,6 +20,8 @@ import {
   type ValidationResult
 } from '@/utils/dependencyGraph';
 import { worktrees, getAgentById } from '@/data/mockData';
+import { services } from '@/data/mockDataV2';
+import { ServiceDependencyGraph } from '@/components/shared/ServiceDependencyGraph';
 import { useDataModel } from '@/hooks/useDataModel';
 import type { Task, TaskV2, TaskStatus, Worktree } from '@/types';
 
@@ -108,6 +112,7 @@ export function DependenciesPanel({
   const { tasks, isV2 } = useDataModel();
   const [selectedTask, setSelectedTask] = useState<GraphNode | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [dependencyMode, setDependencyMode] = useState<'task' | 'service'>('task');
   const [viewMode, setViewMode] = useState<'graph' | 'list' | 'timeline'>('graph');
   const graphNodes = calculateGraphLayout(tasks, isV2);
 
@@ -169,30 +174,72 @@ export function DependenciesPanel({
       {/* Header */}
       <div className="px-5 py-4 bg-bg-1 border-b border-border-1 flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-base font-semibold mb-1">Task Dependencies & Workflow</h2>
+          <h2 className="text-base font-semibold mb-1">
+            {dependencyMode === 'task' ? 'Task Dependencies & Workflow' : 'Service Dependencies'}
+          </h2>
           <p className="text-xs text-text-3">
-            {tasks.length} tasks • {tasks.filter(t => t.status === 'in-progress').length} in progress • 
-            {tasks.filter(t => t.dependsOn?.length).length} with dependencies
+            {dependencyMode === 'task' ? (
+              <>
+                {tasks.length} tasks • {tasks.filter(t => t.status === 'in-progress').length} in progress •
+                {tasks.filter(t => t.dependsOn?.length).length} with dependencies
+              </>
+            ) : (
+              <>
+                {services.length} services • {services.reduce((sum, s) => sum + s.dependencies.dependsOn.length, 0)} dependencies
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* View toggle */}
-          <div className="flex gap-0.5 bg-bg-2 p-0.5 rounded">
-            {(['graph', 'list', 'timeline'] as const).map((mode) => (
+          {/* Dependency Mode Toggle (only in V2) */}
+          {isV2 && (
+            <div className="flex gap-0.5 bg-bg-2 p-0.5 rounded">
               <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => setDependencyMode('task')}
                 className={clsx(
-                  'px-3 py-1.5 text-[11px] font-medium rounded transition-colors capitalize',
-                  viewMode === mode
+                  'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded transition-colors',
+                  dependencyMode === 'task'
                     ? 'bg-bg-3 text-text-1'
                     : 'text-text-2 hover:text-text-1'
                 )}
               >
-                {mode}
+                <Layers className="w-3.5 h-3.5" />
+                Tasks
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setDependencyMode('service')}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded transition-colors',
+                  dependencyMode === 'service'
+                    ? 'bg-bg-3 text-text-1'
+                    : 'text-text-2 hover:text-text-1'
+                )}
+              >
+                <Server className="w-3.5 h-3.5" />
+                Services
+              </button>
+            </div>
+          )}
+
+          {/* View toggle (only for task mode) */}
+          {dependencyMode === 'task' && (
+            <div className="flex gap-0.5 bg-bg-2 p-0.5 rounded">
+              {(['graph', 'list', 'timeline'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={clsx(
+                    'px-3 py-1.5 text-[11px] font-medium rounded transition-colors capitalize',
+                    viewMode === mode
+                      ? 'bg-bg-3 text-text-1'
+                      : 'text-text-2 hover:text-text-1'
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Zoom controls */}
           <div className="flex items-center gap-1 bg-bg-2 rounded p-0.5">
@@ -237,44 +284,50 @@ export function DependenciesPanel({
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Graph area */}
-        <div className="flex-1 overflow-auto p-5">
-          {viewMode === 'graph' && (
-            <DependencyGraph
-              nodes={graphNodes}
-              selectedTask={selectedTask}
-              focusedTaskId={focusedTaskId}
-              onSelectTask={handleSelectTask}
-              zoom={zoom}
-              criticalPath={criticalPath}
-            />
-          )}
-          {viewMode === 'list' && (
-            <DependencyList
-              tasks={tasks}
-              selectedTask={selectedTask}
-              onSelectTask={(task) => handleSelectTask(graphNodes.find(n => n.id === task.id) || selectedTask!)}
-            />
-          )}
-          {viewMode === 'timeline' && (
-            <DependencyTimeline
-              nodes={graphNodes}
-              selectedTask={selectedTask}
-              onSelectTask={handleSelectTask}
-            />
-          )}
-        </div>
+      {dependencyMode === 'service' ? (
+        /* Service Dependency View */
+        <ServiceDependencyGraph services={services} />
+      ) : (
+        /* Task Dependency View */
+        <div className="flex-1 flex overflow-hidden">
+          {/* Graph area */}
+          <div className="flex-1 overflow-auto p-5">
+            {viewMode === 'graph' && (
+              <DependencyGraph
+                nodes={graphNodes}
+                selectedTask={selectedTask}
+                focusedTaskId={focusedTaskId}
+                onSelectTask={handleSelectTask}
+                zoom={zoom}
+                criticalPath={criticalPath}
+              />
+            )}
+            {viewMode === 'list' && (
+              <DependencyList
+                tasks={tasks}
+                selectedTask={selectedTask}
+                onSelectTask={(task) => handleSelectTask(graphNodes.find(n => n.id === task.id) || selectedTask!)}
+              />
+            )}
+            {viewMode === 'timeline' && (
+              <DependencyTimeline
+                nodes={graphNodes}
+                selectedTask={selectedTask}
+                onSelectTask={handleSelectTask}
+              />
+            )}
+          </div>
 
-        {/* Detail sidebar */}
-        <TaskDetailSidebar
-          task={selectedTask}
-          allTasks={tasks}
-          criticalPath={criticalPath}
-          onNavigateToPipeline={onNavigateToPipeline}
-          onNavigateToDiff={onNavigateToDiff}
-        />
-      </div>
+          {/* Detail sidebar */}
+          <TaskDetailSidebar
+            task={selectedTask}
+            allTasks={tasks}
+            criticalPath={criticalPath}
+            onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToDiff={onNavigateToDiff}
+          />
+        </div>
+      )}
     </div>
   );
 }

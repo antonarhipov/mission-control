@@ -3,9 +3,10 @@ import { clsx } from 'clsx';
 import { Plus, Users, Trash2, Folder, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { useDataModel } from '@/hooks/useDataModel';
 import { agents, teams, defaultAgentConfig, getAgentById } from '@/data/mockData';
+import { GuardrailsSection } from '@/components/config/GuardrailsSection';
 import type { Agent, Team, AgentConfig, AutonomyLevel, PermissionLevel, Repository } from '@/types';
 
-type ConfigView = 'agents' | 'teams' | 'repositories' | 'defaults' | 'permissions';
+type ConfigView = 'agents' | 'teams' | 'repositories' | 'defaults' | 'permissions' | 'guardrails';
 
 export function ConfigPanel() {
   const { isV2, repositories } = useDataModel();
@@ -116,6 +117,14 @@ export function ConfigPanel() {
             isSelected={view === 'permissions'}
             onClick={() => setView('permissions')}
           />
+          {isV2 && (
+            <NavItem
+              icon="🛡️"
+              label="Guardrails"
+              isSelected={view === 'guardrails'}
+              onClick={() => setView('guardrails')}
+            />
+          )}
         </div>
       </div>
 
@@ -144,6 +153,7 @@ export function ConfigPanel() {
             updatePermission={updatePermission}
           />
         )}
+        {view === 'guardrails' && <GuardrailsSection />}
       </div>
     </div>
   );
