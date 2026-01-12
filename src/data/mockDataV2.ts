@@ -16,8 +16,8 @@ import type {
   Policy,
   AgentPermission,
   PolicyViolation,
-  QualityScorecard,
-  AuditLogEntry,
+  // QualityScorecard,
+  // AuditLogEntry,
 } from '@/types';
 
 // =============================================================================

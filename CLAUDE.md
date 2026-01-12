@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mission Control UI for Agentic Development Environments - a React/TypeScript web application that visualizes and manages agentic development workflows using worktrees, tasks, teams, and agents.
+Mission Control UI for Agentic Development Environments - a React/TypeScript web application that visualizes and manages multi-agent development workflows. The V3 Multi-Agent Era architecture provides a conversation-first interface with 5 specialized workspaces for intent capture, mission planning, execution review, insights, and configuration.
 
 ## Development Commands
 
@@ -27,36 +27,114 @@ npm run lint
 
 ## Architecture
 
-### Core Domain Model (V2 - Task-Centric)
+### V3 Multi-Agent Era Architecture
 
-The application uses a **task-centric** architecture where tasks are the central entity for multi-repository agentic development:
+The application uses a **conversation-first, mission-centric** architecture with 5 specialized workspaces:
 
-- **Tasks** - Central entity representing a unit of work that may span multiple repositories
-- **Repositories** - Git repositories that can be involved in task implementation
-- **Worktrees** - Git worktrees within repositories (now implementation details of tasks)
-- **Agents** - AI workers with specific roles assigned to tasks (implementer, architect, tester, reviewer, docs)
-- **Teams** - Groups of agents that work together on related features
-- **Pipeline Stages** - Sequential steps in task execution (Design → Implementation → Testing → Review → Documentation)
+#### Core Entities
 
-### Key Relationships
+- **Mission** - Central entity representing a development goal with intent, plan, conversation, and execution
+- **Intent** - User's goal with parsed structure, constraints, and clarifications
+- **Plan** - Agent-proposed implementation approach with tasks, risks, and alternatives
+- **Conversation** - First-class artifact containing messages, decisions, and questions
+- **Agent** - AI worker with persona, memory, and performance metrics
+- **Observation** - Proactive agent insights and suggestions
+- **Team** - Group of agents with shared memory and conventions
+- **Repository** - Connected codebase with AI-powered understanding
+
+#### Mission Lifecycle
 
 ```
-Task (central entity)
-  ├── worktrees: TaskWorktreeV2[] - Can span multiple repositories
-  ├── agents: TaskAgent[] - Team assigned to this task
-  ├── pipeline: PipelineStageV2[] - Execution stages with cost tracking
-  ├── commits: TaskCommit[] - All commits across repositories
-  ├── fileChanges: TaskFileChange[] - All file changes with commit references
-  └── totalCost: number - Aggregated cost across all agents/stages
+Intent → Planning → Executing → Validating → Complete
 
-Repository
-  ├── name, path, remoteUrl - Repository metadata
-  ├── status: connected | disconnected | error
-  └── defaultBranch - Main branch for this repo
+1. Intent Phase:
+   - User describes goal in Command Center
+   - System parses intent, identifies constraints
+   - Agent asks clarifying questions
+   - Conversation begins
 
-Each Agent on Task has:
-  - agentId, role, stage, isActive
-  - contribution: { commits, filesChanged, cost }
+2. Planning Phase:
+   - Agent proposes implementation plan
+   - Shows task breakdown, dependencies, risks
+   - User reviews and approves/requests changes
+   - Agent casts team of specialized agents
+
+3. Executing Phase:
+   - Agents collaborate on implementation
+   - Conversation continues with decisions
+   - Changes tracked with confidence scores
+   - Human gates progression with approvals
+
+4. Validating Phase:
+   - Tests run, quality checks performed
+   - User reviews final changes
+   - Agent addresses feedback
+
+5. Complete Phase:
+   - Mission archived with full history
+   - Learnings captured in agent memory
+```
+
+#### The 5 Workspaces
+
+**1. Command Center** (`/src/components/workspaces/CommandCenter.tsx`)
+- Intent input with context attachment
+- Active conversations panel
+- Agent observations with quick actions
+- Mission creation flow
+
+**2. Missions** (`/src/components/workspaces/MissionsWorkspace.tsx`)
+- Kanban pipeline (Intent → Planning → Executing → Validating → Complete)
+- Mission cards with team and progress
+- Plan review interface with task graph
+- Conversation threading
+
+**3. Review Surface** (`/src/components/workspaces/ReviewSurface.tsx`)
+- Review queue grouped by type (Decisions, Changes, Actions)
+- Change detail with confidence scores
+- Agent uncertainty flags
+- Batch approval workflow
+
+**4. Insights** (`/src/components/workspaces/InsightsWorkspace.tsx`)
+- Progress dashboard with velocity metrics
+- Cost analytics with trends
+- Agent performance comparison
+- Quality signals panel
+- Activity timeline
+
+**5. Settings** (`/src/components/workspaces/SettingsWorkspace.tsx`)
+- Agent memory management
+- Repository understanding display
+- Conventions editor
+- Team memory configuration
+- Budget and integration settings
+
+#### Data Model Highlights
+
+```typescript
+Mission {
+  id, title, phase, status
+  intent: { description, parsed, clarifications, confidence }
+  plan: { summary, approach, tasks[], risks[], alternatives[] }
+  conversation: { messages: Message[], decisions: Decision[], questions: Question[] }
+  execution: { tasks: ExecutingTask[], changes: Change[], approvals: Approval[] }
+  team: { agents: string[], composition: TeamComposition }
+  metrics: { cost, time, quality }
+}
+
+Agent {
+  id, name, role, status, emoji, color
+  persona: { style, specialty, preferences }
+  memory: { projectUnderstanding, conventions[], pastDecisions[] }
+  metrics: { tasksCompleted, approvalRate, qualityScore }
+}
+
+Observation {
+  id, type, priority, agentId
+  title, description, reasoning
+  suggestedAction, codeReferences[]
+  status: pending | acknowledged | dismissed | actioned
+}
 ```
 
 ### Type System (`src/types/index.ts`)

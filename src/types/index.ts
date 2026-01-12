@@ -21,6 +21,142 @@ export interface Team {
   description: string;
   color: string;
   agentIds: string[]; // Agents in this team
+  pipeline?: PipelineConfiguration; // Team's default execution pipeline (optional for backwards compatibility)
+}
+
+// Pipeline Configuration Types - Team-level pipeline with stages and agent assignments
+/**
+ * PipelineConfiguration - Defines execution workflow stages for a team
+ * Supports graph-based pipelines with visual editor state
+ */
+export interface PipelineConfiguration {
+  id: string;
+  name: string; // e.g., "Standard Development Pipeline", "ML Training Pipeline"
+  description?: string;
+  stages: TeamPipelineStage[];
+
+  // GRAPH METADATA
+  entryStageIds?: string[]; // Stages that start the pipeline (no incoming edges)
+
+  // VISUAL EDITOR STATE
+  canvasState?: {
+    zoom: number;
+    centerX: number;
+    centerY: number;
+  };
+
+  // VALIDATION
+  isValid?: boolean; // Whether pipeline graph is valid (no cycles, has entry/exit)
+  validationErrors?: string[]; // List of validation errors if invalid
+
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * TeamPipelineStage - A stage in the team's execution pipeline (configuration)
+ * Supports graph-based pipelines with branching and parallel execution
+ */
+export interface TeamPipelineStage {
+  id: string;
+  name: string; // e.g., "Design", "Implementation", "Testing", "Review", "Deployment"
+  description?: string;
+  assignedAgentIds: string[]; // Manual assignment of agents to this stage
+
+  // GRAPH TOPOLOGY
+  order: number; // Sequence in pipeline (0-indexed) - kept for backward compatibility
+  nextStageIds?: string[]; // Graph edges - stages this stage connects to
+
+  // VISUAL LAYOUT
+  position?: { x: number; y: number }; // Canvas coordinates for visual editor
+
+  // BRANCHING BEHAVIOR
+  branchType?: 'sequential' | 'parallel' | 'conditional'; // Execution flow type
+  condition?: {
+    type: 'test-passed' | 'manual-approval' | 'custom-script';
+    branches: {
+      onSuccess: string[]; // Next stage IDs if condition true
+      onFailure: string[]; // Next stage IDs if condition false
+    };
+  };
+
+  // METADATA
+  color?: string; // Visual distinction in UI
+  requiredForCompletion: boolean; // Can this stage be skipped?
+  estimatedDuration?: string; // e.g., "2 hours", "1 day"
+}
+
+/**
+ * PipelineExecution - Tracks runtime progression through pipeline stages
+ */
+export interface PipelineExecution {
+  pipelineId: string; // Which pipeline configuration was used
+  stages: PipelineStageExecution[];
+  startedAt: string;
+  completedAt?: string;
+  totalCost: number;
+}
+
+/**
+ * PipelineStageExecution - Runtime tracking for a single stage
+ */
+export interface PipelineStageExecution {
+  stageId: string; // Reference to TeamPipelineStage.id
+  status: 'pending' | 'active' | 'completed' | 'skipped' | 'blocked';
+  activeAgentIds: string[]; // Agents currently working on this stage
+  startedAt?: string;
+  completedAt?: string;
+  commits: string[]; // Commit SHAs created during this stage
+  cost: number; // Cost incurred during this stage
+  notes?: string; // Why skipped or blocked
+  logs?: PipelineStageExecutionLog; // Detailed execution logs for this stage
+}
+
+/**
+ * PipelineStageExecutionLog - Detailed execution log for a pipeline stage
+ */
+export interface PipelineStageExecutionLog {
+  id: string;
+  stageId: string;
+  entries: PipelineLogEntry[];
+}
+
+/**
+ * PipelineLogEntry - Individual log entry with timestamp and context
+ */
+export interface PipelineLogEntry {
+  id: string;
+  timestamp: string;
+  type: 'agent_activity' | 'commit' | 'test' | 'error' | 'decision' | 'approval' | 'system';
+  severity: 'info' | 'warning' | 'error' | 'success';
+  agentId?: string; // Which agent generated this log
+  message: string;
+  details?: {
+    // For commits
+    commitSha?: string;
+    commitMessage?: string;
+    filesChanged?: string[];
+
+    // For tests
+    testName?: string;
+    testStatus?: 'passed' | 'failed' | 'skipped';
+    testOutput?: string;
+
+    // For errors
+    errorType?: string;
+    stackTrace?: string;
+    resolution?: string;
+
+    // For decisions
+    decision?: string;
+    rationale?: string;
+    alternatives?: string[];
+
+    // For approvals
+    approver?: string;
+    approved?: boolean;
+    feedback?: string;
+  };
 }
 
 // Worktree Agent Assignment - agent's role within a worktree
@@ -814,3 +950,746 @@ export type AuditAction =
   | 'rolled-back'
   | 'requested-approval'
   | 'merged-pr';
+
+// =============================================================================
+// V3 TYPES - Multi-Agent Era Architecture
+// =============================================================================
+// V3 introduces Mission-centric architecture with conversation as first-class artifact,
+// agent observations, casting, and ambient awareness.
+
+// -----------------------------------------------------------------------------
+// Mission Types - Central entity replacing Task as primary orchestration unit
+// -----------------------------------------------------------------------------
+
+export type MissionStatus =
+  | 'backlog'    // Not started yet
+  | 'planning'   // Creating plan with agents
+  | 'executing'  // Implementing (see currentPipelineStage for detail)
+  | 'complete'   // Finished successfully
+  | 'blocked';   // Cannot proceed
+
+/**
+ * Mission - High-level goal that spawns plans and tasks
+ * Central entity in V3 architecture, contains conversation, plan, and execution
+ */
+export interface Mission {
+  id: string;
+  title: string;
+
+  // Team ownership
+  teamId: string;
+
+  // Link to the conversation that led to this mission
+  conversationId: string;
+
+  // Simplified status
+  status: MissionStatus;
+
+  // Pipeline tracking
+  currentPipelineStage?: string; // stage ID when status='executing'
+  pipelineExecution?: PipelineExecution; // Execution trace
+
+  // The original intent expressed by operator
+  intent: Intent;
+
+  // The plan (when approved)
+  plan?: Plan;
+
+  // Execution details
+  execution?: Execution;
+
+  // The conversation thread (embedded for convenience)
+  conversation: Conversation;
+
+  // Assigned agents
+  agents: MissionAgent[];
+
+  // Progress and cost
+  progress: number;
+  cost: number;
+
+  // Timestamps
+  startedAt?: string;
+  completedAt?: string;
+}
+
+/**
+ * MissionAgent - Agent assignment within a mission
+ */
+export interface MissionAgent {
+  agentId: string;
+  role: AgentRole;
+  stage: string;
+  isActive: boolean;
+  contribution: {
+    commits: number;
+    filesChanged: number;
+    cost: number;
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Intent Types - Structured understanding of operator's goal
+// -----------------------------------------------------------------------------
+
+/**
+ * Intent - Natural language intent with parsed structure
+ */
+export interface Intent {
+  // Natural language description of goal
+  description: string;
+
+  // Parsed/structured understanding
+  parsed: {
+    goal: string;
+    constraints: string[];
+    preferences: string[];
+    scope: string[];
+    outOfScope: string[];
+  };
+
+  // Operator clarifications
+  clarifications: Clarification[];
+
+  // Confidence that intent is well understood (0-100)
+  confidence: number;
+}
+
+/**
+ * Clarification - Question and answer for intent refinement
+ */
+export interface Clarification {
+  id: string;
+  question: string;
+  answer?: string;
+  askedBy: 'operator' | 'agent';
+  askedAt: string;
+  answeredAt?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Plan Types - Detailed approach with task breakdown
+// -----------------------------------------------------------------------------
+
+/**
+ * Plan - Structured approach to achieve mission
+ */
+export interface Plan {
+  id: string;
+
+  // Summary of approach
+  summary: string;
+
+  // Why this approach
+  rationale: string;
+
+  // Alternatives considered
+  alternatives: AlternativeApproach[];
+
+  // Breakdown into tasks
+  tasks: PlannedTask[];
+
+  // Risks identified
+  risks: Risk[];
+
+  // Estimated cost and time
+  estimate: {
+    cost: { min: number; max: number; expected: number };
+    time: { min: string; max: string; expected: string };
+  };
+
+  // Repositories that will be touched
+  repositories: string[];
+
+  // Plan status
+  status: 'draft' | 'proposed' | 'approved' | 'rejected';
+
+  // Operator feedback
+  feedback?: string;
+}
+
+/**
+ * PlannedTask - Individual task within a plan
+ */
+export interface PlannedTask {
+  id: string;
+  title: string;
+  description: string;
+
+  // Which agent role should do this
+  suggestedRole: AgentRole;
+
+  // Which specific agent (if cast)
+  assignedAgent?: string;
+
+  // Dependencies
+  dependsOn: string[];
+
+  // Affected files/areas
+  scope: string[];
+
+  // Estimated effort
+  estimate: {
+    cost: number;
+    time: string;
+  };
+
+  // Can this run in parallel?
+  parallelizable: boolean;
+}
+
+/**
+ * AlternativeApproach - Alternative way to solve the mission
+ */
+export interface AlternativeApproach {
+  title: string;
+  description: string;
+  pros: string[];
+  cons: string[];
+  rejected: boolean;
+  reason?: string;
+}
+
+/**
+ * Risk - Identified risk in the plan
+ */
+export interface Risk {
+  id: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  mitigation?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Conversation Types - First-class conversation artifact
+// -----------------------------------------------------------------------------
+
+/**
+ * Conversation - Persistent thread of intent, decisions, and context
+ */
+export interface Conversation {
+  id: string;
+  missionId: string | null; // null until conversation is submitted to a team for execution
+
+  // Conversation metadata
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+
+  // Specification toolkit used for refinement
+  specificationToolkitId?: string;
+  workflowRuns: SpecificationWorkflowRun[]; // History of toolkit executions
+
+  // All messages in the thread
+  messages: Message[];
+
+  // Key decisions made
+  decisions: Decision[];
+
+  // Open questions
+  openQuestions: Question[];
+}
+
+/**
+ * Message - Individual message in conversation
+ */
+export interface Message {
+  id: string;
+  timestamp: string;
+
+  // Who sent it
+  sender: {
+    type: 'operator' | 'agent' | 'system';
+    id?: string; // agent ID if sender type is 'agent'
+  };
+
+  // Content
+  content: string;
+
+  // Attachments (code snippets, files, etc)
+  attachments?: Attachment[];
+
+  // If this message represents a decision
+  decision?: Decision;
+
+  // If this message asks a question
+  question?: Question;
+}
+
+/**
+ * Decision - Key decision with options and rationale
+ */
+export interface Decision {
+  id: string;
+  title: string;
+  description: string;
+
+  // Who made it
+  madeBy: 'operator' | 'agent';
+  agentId?: string;
+
+  // The options considered
+  options: Option[];
+
+  // Which was chosen
+  chosen: string; // option id
+
+  // Why
+  rationale: string;
+
+  // Impact on code
+  codeImpact?: {
+    files: string[];
+    commits: string[];
+  };
+
+  timestamp: string;
+}
+
+/**
+ * Option - Single option in a decision
+ */
+export interface Option {
+  id: string;
+  title: string;
+  description: string;
+  pros: string[];
+  cons: string[];
+}
+
+/**
+ * Question - Open question in conversation
+ */
+export interface Question {
+  id: string;
+  question: string;
+  askedBy: 'operator' | 'agent';
+  agentId?: string;
+  answered: boolean;
+  answer?: string;
+  answeredAt?: string;
+}
+
+/**
+ * Attachment - File, code, or link attached to message
+ */
+export interface Attachment {
+  type: 'code' | 'file' | 'link' | 'image';
+  content: string;
+  metadata?: Record<string, any>;
+}
+
+// -----------------------------------------------------------------------------
+// Execution Types - Runtime state and change management
+// -----------------------------------------------------------------------------
+
+/**
+ * Execution - Runtime state of mission execution
+ */
+export interface Execution {
+  missionId: string;
+  planId: string;
+
+  // Running tasks
+  tasks: ExecutingTask[];
+
+  // Changes made
+  changes: Change[];
+
+  // Commits created
+  commits: TaskCommit[]; // Reuse TaskCommit from V2
+
+  // Pending approvals
+  approvals: Approval[];
+
+  // Background observations
+  observations: Observation[];
+}
+
+/**
+ * ExecutingTask - Task being executed by agent
+ */
+export interface ExecutingTask {
+  plannedTaskId: string;
+
+  status: 'pending' | 'running' | 'paused' | 'blocked' | 'complete' | 'failed';
+
+  // Assigned agent
+  agentId: string;
+
+  // What the agent is currently doing
+  currentActivity: string;
+
+  // Progress (0-100)
+  progress: number;
+
+  // Cost so far
+  cost: number;
+
+  // Time spent
+  startedAt: string;
+  completedAt?: string;
+
+  // Work products
+  changes: Change[];
+
+  // Issues encountered
+  issues: Issue[];
+}
+
+/**
+ * Change - Individual change with status and reasoning
+ */
+export interface Change {
+  id: string;
+  taskId: string;
+  agentId: string;
+
+  // What was changed
+  type: 'file' | 'config' | 'dependency' | 'test';
+
+  // File details
+  repository: string;
+  path: string;
+  changeType: 'added' | 'modified' | 'deleted';
+
+  // Diff
+  additions: number;
+  deletions: number;
+  diff: string;
+
+  // Why this change (KEY for review surface)
+  reasoning: string;
+
+  // Agent confidence score (0-100)
+  confidence?: number;
+
+  // Status (for review workflow)
+  status: 'pending-review' | 'approved' | 'rejected' | 'revised';
+
+  // Linked commit (after approval)
+  commitSha?: string;
+
+  timestamp: string;
+}
+
+/**
+ * Action - Action requiring approval
+ */
+export interface Action {
+  id: string;
+  description: string;
+  type: 'deploy' | 'rollback' | 'merge' | 'delete' | 'external-api';
+  risk: 'low' | 'medium' | 'high';
+  reversible: boolean;
+}
+
+/**
+ * Issue - Problem encountered during execution
+ */
+export interface Issue {
+  id: string;
+  severity: 'error' | 'warning' | 'info';
+  description: string;
+  resolvedAt?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Observation Types - Agent ambient awareness
+// -----------------------------------------------------------------------------
+
+/**
+ * Observation - Proactive insight from agent
+ */
+export interface Observation {
+  id: string;
+  agentId: string;
+  timestamp: string;
+
+  type:
+    | 'pattern-detected'      // "I noticed a recurring pattern"
+    | 'risk-identified'       // "This might cause issues"
+    | 'opportunity'           // "We could improve this"
+    | 'inconsistency'         // "This doesn't match the rest"
+    | 'dependency-update'     // "A library has updates"
+    | 'test-coverage'         // "This area lacks tests"
+    | 'performance'           // "This might be slow"
+    | 'security';             // "Potential security issue"
+
+  title: string;
+  description: string;
+
+  // Confidence level (0-100)
+  confidence: number;
+
+  // Suggested action
+  suggestion?: string;
+
+  // Related code/files
+  references: Reference[];
+
+  // Operator response
+  acknowledged: boolean;
+  dismissed: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Approval Types - Fine-grained approval workflow (Phase 6)
+// -----------------------------------------------------------------------------
+
+/**
+ * Approval - Item requiring operator approval (Review Surface)
+ * Flattened structure optimized for review workflow with confidence scores
+ */
+export interface Approval {
+  id: string;
+  type: 'change' | 'decision' | 'action';
+
+  // What needs approval
+  title: string;
+  description: string;
+
+  // Agent context
+  agentId?: string;
+
+  // Status
+  status: 'pending' | 'approved' | 'rejected';
+
+  // Confidence score (0-100) - for changes
+  confidence?: number;
+
+  // Priority
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+
+  // Agent uncertainty (requires operator input)
+  requiresInput?: boolean;
+  question?: string;
+
+  // Reasoning and impact
+  reasoning?: string;
+  impact?: string;
+
+  // Affected files (for changes)
+  affectedFiles?: string[];
+
+  // Timestamp
+  timestamp: string;
+}
+
+// -----------------------------------------------------------------------------
+// Agent Enhancement Types - Persona, metrics, memory
+// -----------------------------------------------------------------------------
+
+/**
+ * AgentPersona - Agent's personality and approach
+ */
+export interface AgentPersona {
+  style: 'thorough' | 'fast' | 'creative' | 'conservative';
+  verbosity: 'minimal' | 'balanced' | 'detailed';
+  riskTolerance: 'low' | 'medium' | 'high';
+  specialty?: string; // e.g., "Spring Framework", "React", "SQL"
+}
+
+/**
+ * AgentMetrics - Performance metrics per agent
+ */
+export interface AgentMetrics {
+  tasksCompleted: number;
+  approvalRate: number;      // % of work approved first time
+  reworkRate: number;        // % of work requiring revisions
+  avgCostPerTask: number;
+  avgTimePerTask: number;
+  qualityScore: number;      // 0-100 composite score
+
+  // Performance by task type
+  byTaskType: Record<string, {
+    count: number;
+    approvalRate: number;
+    avgCost: number;
+  }>;
+}
+
+/**
+ * AgentMemory - Agent's knowledge and past decisions
+ */
+export interface AgentMemory {
+  projectUnderstanding: string;
+  conventions: string[];
+  pastDecisions: Array<{
+    missionId: string;
+    decision: string;
+    outcome: string;
+  }>;
+  skills?: AgentSkillAssignment[]; // Skills assigned to this agent
+  teamMemory?: TeamMemory;
+}
+
+/**
+ * TeamMemory - Shared memory across team
+ */
+export interface TeamMemory {
+  teamId: string;
+  sharedDecisions: string[]; // Important team-level decisions
+  // Note: sharedConventions removed - skills are now assigned directly to agents
+}
+
+// -----------------------------------------------------------------------------
+// Repository Enhancement Types - Agent understanding of codebase
+// -----------------------------------------------------------------------------
+
+/**
+ * RepositoryUnderstanding - Agent's knowledge of repository
+ */
+export interface RepositoryUnderstanding {
+  // Agent-generated project summary
+  summary: string;
+
+  // Key patterns detected
+  patterns: string[];
+
+  // Architecture understanding
+  architecture: ArchitectureModel;
+
+  // Conventions learned
+  conventions: Convention[];
+
+  // Last analyzed
+  analyzedAt: string;
+
+  // Confidence score (0-100)
+  confidence: number;
+}
+
+/**
+ * ArchitectureModel - Understanding of codebase architecture
+ */
+export interface ArchitectureModel {
+  type: string; // e.g., "microservices", "monolith", "serverless"
+  layers: string[]; // e.g., ["controller", "service", "repository"]
+  keyComponents: string[];
+}
+
+/**
+ * Convention - Coding convention or pattern
+ */
+export interface Convention {
+  category: string;
+  description: string;
+  example?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Agent Skills - Capabilities that can be assigned to agents
+// -----------------------------------------------------------------------------
+
+/**
+ * AgentSkill - Modular capability that extends an agent's functionality
+ * Skills package instructions, metadata, and resources into a reusable tool
+ * The AI automatically uses these Skills when they are relevant to the task
+ */
+export interface AgentSkill {
+  id: string;
+  name: string;
+  description: string;
+  category: 'coding' | 'analysis' | 'testing' | 'documentation' | 'deployment' | 'communication' | 'security' | 'database' | 'api' | 'other';
+
+  // Skill metadata
+  version?: string;
+  author?: string;
+  tags?: string[];
+
+  // Packaged resources
+  instructions?: string; // Core instructions for using this skill
+  prerequisites?: string[]; // skill IDs that should be available first
+
+  // Usage information
+  useCases?: string[];
+  examples?: string[];
+  documentation?: string;
+
+  // Status
+  isActive: boolean;
+  isDeprecated?: boolean;
+  deprecationMessage?: string;
+
+  // Metadata
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * AgentSkillAssignment - Links a skill to an agent
+ */
+export interface AgentSkillAssignment {
+  skillId: string;
+  assignedAt: string;
+  lastUsedAt?: string;
+  usageCount?: number;
+  notes?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Background Task Types - Async/sync workflow management
+// -----------------------------------------------------------------------------
+
+/**
+ * BackgroundTask - Mission running in background
+ */
+export interface BackgroundTask {
+  missionId: string;
+  mode: 'interactive' | 'background' | 'scheduled';
+  scheduledFor?: string;
+  needsAttention: boolean;
+  blockingQuestion?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Specification Toolkit Types - Integration with spec authoring tools
+// -----------------------------------------------------------------------------
+
+/**
+ * SpecificationToolkit - External tools for refining specs (OpenSPE, Agent-OS, etc.)
+ */
+export interface SpecificationToolkit {
+  id: string;
+  name: string;
+  description: string;
+  provider: string; // e.g., 'OpenSPE', 'Agent-OS', 'Custom'
+  version: string;
+  capabilities: {
+    autoRefine: boolean; // Can automatically refine prompts
+    interactive: boolean; // Supports back-and-forth conversation
+    validation: boolean; // Can validate specifications
+    templates: boolean; // Provides spec templates
+  };
+  config?: Record<string, any>;
+  isActive: boolean;
+}
+
+/**
+ * SpecificationWorkflowRun - A single execution of the toolkit workflow
+ */
+export interface SpecificationWorkflowRun {
+  id: string;
+  toolkitId: string;
+  startedAt: string;
+  completedAt?: string;
+  status: 'running' | 'completed' | 'failed';
+  input: {
+    prompt: string;
+    context?: Record<string, any>;
+  };
+  output?: {
+    specification: string; // The refined specification
+    confidence: number;
+    suggestions?: string[];
+    validationErrors?: string[];
+  };
+  cost?: number;
+}
+
+// -----------------------------------------------------------------------------
+// Workspace Types - V3 workspace navigation
+// -----------------------------------------------------------------------------
+
+export type WorkspaceId = 'conversations' | 'missions' | 'review' | 'insights' | 'settings';

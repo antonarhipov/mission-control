@@ -1,7 +1,12 @@
 import { GitBranch } from 'lucide-react';
 import { useDataModel } from '@/hooks/useDataModel';
 
-export function Header() {
+interface HeaderProps {
+  isV3Enabled?: boolean;
+  onToggleV3?: () => void;
+}
+
+export function Header({ isV3Enabled = false, onToggleV3 }: HeaderProps) {
   const { sessionStats } = useDataModel();
 
   return (
@@ -26,6 +31,20 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* V2/V3 Toggle */}
+        {onToggleV3 && (
+          <button
+            onClick={onToggleV3}
+            className="flex items-center gap-2 px-3 py-1.5 bg-bg-2 hover:bg-bg-3 border border-border-1 rounded-md text-xs font-medium transition-colors"
+            title="Toggle between V2 and V3 modes"
+          >
+            <span className={isV3Enabled ? 'text-text-3' : 'text-accent-blue font-semibold'}>V2</span>
+            <div className={`w-8 h-4 rounded-full transition-colors ${isV3Enabled ? 'bg-accent-blue' : 'bg-bg-3'} relative`}>
+              <div className={`absolute top-0.5 ${isV3Enabled ? 'right-0.5' : 'left-0.5'} w-3 h-3 bg-white rounded-full transition-all`} />
+            </div>
+            <span className={isV3Enabled ? 'text-accent-blue font-semibold' : 'text-text-3'}>V3</span>
+          </button>
+        )}
 
         {/* Session cost */}
         <div className="flex items-center gap-3 font-mono text-xs px-3 py-1.5 bg-bg-2 rounded-md">
