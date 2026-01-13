@@ -1011,6 +1011,9 @@ export interface Mission {
   // Timestamps
   startedAt?: string;
   completedAt?: string;
+
+  // V4 FIELD - Specification Impact
+  specificationImpact?: SpecificationImpact; // Computed view of spec implementation
 }
 
 /**
@@ -1371,6 +1374,15 @@ export interface Change {
   commitSha?: string;
 
   timestamp: string;
+
+  // V4 FIELDS - Specification Traceability
+  fulfillsAcceptanceCriteria?: string[]; // ["AC-1", "AC-3"]
+  specRationale?: string; // Why this change per spec
+  costByCriterion?: Record<string, number>; // Cost distribution
+
+  // V4 FIELDS - Orphan Detection
+  isOrphan?: boolean; // True if no criteria linked
+  orphanResolution?: 'linked' | 'new-criterion' | 'tech-debt'; // How orphan was resolved
 }
 
 /**
@@ -1693,3 +1705,123 @@ export interface SpecificationWorkflowRun {
 // -----------------------------------------------------------------------------
 
 export type WorkspaceId = 'conversations' | 'missions' | 'review' | 'insights' | 'settings';
+
+// -----------------------------------------------------------------------------
+// V4 Specification Traceability Types
+// -----------------------------------------------------------------------------
+
+/**
+ * CommitReference - Links acceptance criteria to specific commits
+ */
+export interface CommitReference {
+  sha: string;
+  message: string;
+  agentId?: string;
+  cost: number;
+  timestamp: string;
+}
+
+/**
+ * FileReference - Links acceptance criteria to specific file changes
+ */
+export interface FileReference {
+  id: string;
+  path: string;
+  filename: string;
+  changeType: 'added' | 'modified' | 'deleted';
+  additions: number;
+  deletions: number;
+  rationale: string; // Why this file implements the criterion
+}
+
+/**
+ * TestReference - Links acceptance criteria to test results
+ */
+export interface TestReference {
+  testId: string;
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  runAt: string;
+}
+
+/**
+ * AcceptanceCriterionV4 - Specification requirement with full traceability
+ * Bridges V2 traceability with V3 mission orchestration
+ */
+export interface AcceptanceCriterionV4 {
+  id: string; // "AC-1", "AC-2", etc.
+  description: string; // What success looks like
+  completed: boolean;
+  completedAt?: string;
+
+  // Dependencies & Assignment
+  dependsOn?: string[]; // Criteria that must complete first
+  assignedAgents?: string[]; // Agents currently working on this
+
+  // Cost Attribution
+  costAttribution: {
+    totalCost: number;
+    byAgent: Record<string, number>; // agentId -> cost contribution
+    byStage: Record<string, number>; // stageId -> cost contribution
+  };
+
+  // Traceability - What implements this criterion
+  implementedIn: {
+    commits: CommitReference[]; // Commits implementing this
+    files: FileReference[]; // Files implementing this
+    changesInReview: string[]; // Change IDs pending approval
+  };
+
+  // Verification Status
+  verification: {
+    status: 'pending' | 'agent-verified' | 'human-verified' | 'failed';
+    verifiedBy?: string;
+    verifiedAt?: string;
+    testResults?: TestReference[];
+  };
+}
+
+/**
+ * PlanV4 - Plan with acceptance criteria and traceability
+ */
+export interface PlanV4 extends Plan {
+  // Bridge to V2 traceability
+  acceptanceCriteria: AcceptanceCriterionV4[];
+
+  // Specification approval workflow
+  specificationStatus: 'draft' | 'pending_approval' | 'approved' | 'changes_requested' | 'rejected';
+  approvedAt?: string;
+  approvedBy?: string;
+
+  // Map plan tasks to acceptance criteria
+  taskCriteriaMapping: {
+    taskId: string;
+    criteriaIds: string[];
+  }[];
+}
+
+/**
+ * CriterionCostSummary - Aggregated view of criterion implementation
+ */
+export interface CriterionCostSummary {
+  criterionId: string;
+  description: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'verified' | 'blocked';
+  blockedBy?: string[]; // Criteria IDs blocking this one
+  cost: number;
+  implementingAgents: string[];
+  implementingFiles: string[];
+  implementingCommits: string[];
+}
+
+/**
+ * SpecificationImpact - Computed view of specification implementation progress
+ */
+export interface SpecificationImpact {
+  totalCriteria: number;
+  completedCriteria: number;
+  verifiedCriteria: number;
+  totalCost: number;
+  costByCriterion: Record<string, CriterionCostSummary>;
+  orphanedChanges: Change[]; // Unlinked changes
+}

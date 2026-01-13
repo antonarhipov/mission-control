@@ -3,7 +3,7 @@ import { WorkspaceShell } from './WorkspaceShell';
 import { MissionCard } from '@/components/missions/MissionCard';
 import { MissionDetailPanel } from '@/components/missions/MissionDetailPanel';
 import { MissionDetailModal } from '@/components/missions/MissionDetailModal';
-import { useV3DataModel } from '@/hooks/useV3DataModel';
+import { useV4DataModel } from '@/hooks/useV4DataModel';
 import type { Mission, MissionStatus } from '@/types';
 
 interface MissionsWorkspaceProps {
@@ -19,7 +19,7 @@ export function MissionsWorkspace({
   onSelectMission,
   onNavigateToReview: _onNavigateToReview, // Reserved for future use
 }: MissionsWorkspaceProps) {
-  const { missions } = useV3DataModel();
+  const { missions } = useV4DataModel();
   const [localSelectedMissionId, setLocalSelectedMissionId] = useState<string | null>(null);
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
 

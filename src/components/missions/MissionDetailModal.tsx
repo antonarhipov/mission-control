@@ -3,6 +3,7 @@ import { X, Calendar, DollarSign, Users, MessageSquare, Target, CheckCircle2 } f
 import { PipelineExecutionViewer } from './PipelineExecutionViewer';
 import { PlanViewer } from './PlanViewer';
 import { ConversationThread } from '@/components/conversation/ConversationThread';
+import { SpecificationImpactDashboard } from '@/components/specification/SpecificationImpactDashboard';
 import { useV3DataModel } from '@/hooks/useV3DataModel';
 import type { Mission } from '@/types';
 
@@ -11,7 +12,7 @@ interface MissionDetailModalProps {
   onClose: () => void;
 }
 
-type TabType = 'overview' | 'pipeline' | 'plan' | 'conversation';
+type TabType = 'overview' | 'pipeline' | 'plan' | 'conversation' | 'spec-impact';
 
 export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps) {
   const { agents, teams } = useV3DataModel();
@@ -187,6 +188,18 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
           >
             Conversation
           </button>
+          {mission.specificationImpact && (
+            <button
+              onClick={() => setActiveTab('spec-impact')}
+              className={`px-4 py-2 rounded transition-colors ${
+                activeTab === 'spec-impact'
+                  ? 'bg-accent-blue/10 text-accent-blue font-medium'
+                  : 'text-text-2 hover:bg-bg-1'
+              }`}
+            >
+              Spec Impact
+            </button>
+          )}
         </div>
 
         {/* Tab Content */}
@@ -383,6 +396,20 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
                 className="h-full"
               />
             </div>
+          )}
+
+          {activeTab === 'spec-impact' && mission.specificationImpact && (
+            <SpecificationImpactDashboard
+              mission={mission}
+              onNavigateToReview={(criterionId) => {
+                // TODO: Navigate to Review workspace with filter
+                console.log('Navigate to review for criterion:', criterionId);
+              }}
+              onNavigateToDiff={(fileId) => {
+                // TODO: Navigate to diff view for file
+                console.log('Navigate to diff for file:', fileId);
+              }}
+            />
           )}
         </div>
       </div>
