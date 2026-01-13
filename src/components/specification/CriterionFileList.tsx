@@ -26,7 +26,10 @@ export function CriterionFileList({ files, commits, onNavigateToDiff }: Criterio
             {files.map(file => (
               <button
                 key={file.id}
-                onClick={() => onNavigateToDiff?.(file.id)}
+                onClick={() => {
+                  console.log('[CriterionFileList] File clicked:', file.id, file.path);
+                  onNavigateToDiff?.(file.id);
+                }}
                 className="w-full flex items-start gap-2 p-2 bg-bg-0 hover:bg-bg-2 rounded text-left transition-colors group"
               >
                 <FileCode className="w-3 h-3 text-text-3 flex-shrink-0 mt-0.5" />

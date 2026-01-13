@@ -9,19 +9,36 @@ import type { Mission, MissionStatus } from '@/types';
 interface MissionsWorkspaceProps {
   selectedMissionId?: string | null;
   conversationView?: boolean;
+  focusedCriterionId?: string | null;
+  focusedFileId?: string | null;
+  showSpecImpactModal?: boolean;
+  onCloseSpecImpactModal?: () => void;
   onSelectMission?: (missionId: string) => void;
   onNavigateToReview?: (missionId: string) => void;
+  onNavigateToDiff?: (taskId: string, commitSha?: string, fileId?: string) => void;
 }
 
 export function MissionsWorkspace({
   selectedMissionId: propSelectedMissionId,
-  conversationView = false,
+  conversationView: _conversationView = false, // Reserved for future use
+  focusedCriterionId,
+  focusedFileId,
+  showSpecImpactModal: _showSpecImpactModal, // Reserved for future use
+  onCloseSpecImpactModal: _onCloseSpecImpactModal, // Reserved for future use
   onSelectMission,
   onNavigateToReview: _onNavigateToReview, // Reserved for future use
+  onNavigateToDiff,
 }: MissionsWorkspaceProps) {
   const { missions } = useV4DataModel();
   const [localSelectedMissionId, setLocalSelectedMissionId] = useState<string | null>(null);
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
+
+  // Close modal when component unmounts (e.g., navigating away from workspace)
+  useEffect(() => {
+    return () => {
+      setExpandedMissionId(null);
+    };
+  }, []);
 
   // Sync with prop selectedMissionId
   const selectedMissionId = propSelectedMissionId !== undefined ? propSelectedMissionId : localSelectedMissionId;
@@ -160,7 +177,10 @@ export function MissionsWorkspace({
         return expandedMission ? (
           <MissionDetailModal
             mission={expandedMission}
+            focusedCriterionId={focusedCriterionId}
+            focusedFileId={focusedFileId}
             onClose={() => setExpandedMissionId(null)}
+            onNavigateToDiff={onNavigateToDiff}
           />
         ) : null;
       })()}

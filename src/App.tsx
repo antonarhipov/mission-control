@@ -48,12 +48,32 @@ function App() {
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const [focusedCriterionId, setFocusedCriterionId] = useState<string | null>(null);
 
+  // V4 Phase 8: Bidirectional navigation state
+  const [focusedFileId, setFocusedFileId] = useState<string | null>(null);
+  const [showSpecImpactModal, setShowSpecImpactModal] = useState<boolean>(false);
+
   // Navigation helpers
-  const navigateToDiff = useCallback((taskId: string, commitSha?: string) => {
+  const navigateToDiff = useCallback((taskId: string, commitSha?: string, fileId?: string) => {
+    console.log('[App] navigateToDiff called:', { taskId, commitSha, fileId, isV3Enabled });
+
     setSelectedTaskId(taskId);
     setSelectedCommitSha(commitSha || null);
-    setActiveTab('diff');
-  }, []);
+
+    // V4 Phase 8: Set file focus if provided
+    if (fileId) {
+      setFocusedFileId(fileId);
+      setTimeout(() => setFocusedFileId(null), 3000);
+    }
+
+    // V3 Mode: Navigate to missions workspace and set mission (modal will auto-open)
+    if (isV3Enabled) {
+      setSelectedMissionId(taskId); // In V3, taskId is actually missionId
+      setActiveWorkspace('missions');
+      // Modal will auto-open via MissionsWorkspace and switch to diff tab via focusedFileId
+    } else {
+      setActiveTab('diff');
+    }
+  }, [isV3Enabled]);
 
   const navigateToPipeline = useCallback((taskId: string, criterionId?: string) => {
     setSelectedTaskId(taskId);
@@ -94,6 +114,26 @@ function App() {
     setSelectedMissionId(missionId);
     setActiveWorkspace('review');
   }, []);
+
+  // V4 Phase 8: Navigate to Specification Impact Dashboard
+  const navigateToSpecImpact = useCallback((missionId: string, criterionId?: string) => {
+    setSelectedMissionId(missionId);
+
+    if (criterionId) {
+      setFocusedCriterionId(criterionId);
+      setTimeout(() => setFocusedCriterionId(null), 3000);
+    }
+
+    // V3 Mode: Navigate to missions workspace and open modal
+    if (isV3Enabled) {
+      setActiveWorkspace('missions');
+      setShowSpecImpactModal(true);
+    }
+    // V2 Mode: No spec impact tab yet, navigate to pipeline
+    else {
+      navigateToPipeline(missionId, criterionId);
+    }
+  }, [isV3Enabled, navigateToPipeline]);
 
   const handleWorkspaceChange = useCallback((workspace: WorkspaceId) => {
     setActiveWorkspace(workspace);
@@ -154,6 +194,8 @@ function App() {
             selectedTaskId={selectedTaskId}
             selectedCommitSha={selectedCommitSha}
             onNavigateToPipeline={navigateToPipeline}
+            focusedFileId={focusedFileId}
+            onNavigateToSpecImpact={navigateToSpecImpact}
           />
         );
       case 'cost':
@@ -190,8 +232,13 @@ function App() {
           <MissionsWorkspace
             selectedMissionId={selectedMissionId}
             conversationView={conversationView}
+            focusedCriterionId={focusedCriterionId}
+            focusedFileId={focusedFileId}
+            showSpecImpactModal={showSpecImpactModal}
+            onCloseSpecImpactModal={() => setShowSpecImpactModal(false)}
             onSelectMission={setSelectedMissionId}
             onNavigateToReview={navigateToReview}
+            onNavigateToDiff={navigateToDiff}
           />
         );
       case 'review':
@@ -200,6 +247,7 @@ function App() {
             selectedMissionId={selectedMissionId}
             onNavigateToMission={navigateToMission}
             onNavigateToConversation={navigateToConversation}
+            onNavigateToSpecImpact={navigateToSpecImpact}
           />
         );
       case 'insights':

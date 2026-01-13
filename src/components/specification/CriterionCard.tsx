@@ -5,13 +5,14 @@ import type { AcceptanceCriterionV4, CriterionCostSummary } from '@/types';
 import clsx from 'clsx';
 
 interface CriterionCardProps {
+  id?: string;
   criterion: AcceptanceCriterionV4;
   summary: CriterionCostSummary;
   onNavigateToReview?: () => void;
   onNavigateToDiff?: (fileId: string) => void;
 }
 
-export function CriterionCard({ criterion, summary, onNavigateToReview, onNavigateToDiff }: CriterionCardProps) {
+export function CriterionCard({ id, criterion, summary, onNavigateToReview, onNavigateToDiff }: CriterionCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   // Status icon and color
@@ -53,7 +54,10 @@ export function CriterionCard({ criterion, summary, onNavigateToReview, onNaviga
   const statusDisplay = getStatusDisplay();
 
   return (
-    <div className="bg-bg-1 border border-border-1 rounded-lg p-4 hover:border-border-2 transition-colors">
+    <div
+      id={id}
+      className="bg-bg-1 border border-border-1 rounded-lg p-4 hover:border-border-2 transition-colors"
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">

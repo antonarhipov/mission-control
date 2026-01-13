@@ -4,7 +4,7 @@ import type { FileChange } from '@/types';
 
 interface FileListProps {
   files: FileChange[];
-  selectedFile: FileChange;
+  selectedFile: FileChange | null;
   onSelectFile: (file: FileChange) => void;
 }
 
@@ -20,11 +20,14 @@ export function FileList({ files, selectedFile, onSelectFile }: FileListProps) {
     }
   };
 
+  // Filter out any null/undefined files for safety
+  const validFiles = files.filter((file): file is FileChange => !!file && !!file.filename);
+
   return (
     <div className="flex-1 overflow-y-auto py-1.5">
-      {files.map((file) => {
+      {validFiles.map((file) => {
         const icon = getFileIcon(file.changeType);
-        const isSelected = file.filename === selectedFile.filename;
+        const isSelected = selectedFile ? file.filename === selectedFile.filename : false;
         const agent = file.agentId ? getAgentById(file.agentId) : null;
 
         return (

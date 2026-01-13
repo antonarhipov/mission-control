@@ -3,19 +3,22 @@ import { WorkspaceShell } from './WorkspaceShell';
 import { ReviewQueue } from '@/components/review/ReviewQueue';
 import { ChangeReviewDetail } from '@/components/review/ChangeReviewDetail';
 import { BatchApprovalPanel } from '@/components/review/BatchApprovalPanel';
-import { CheckSquare, Layers } from 'lucide-react';
+import { SpecificationContext } from '@/components/review/SpecificationContext';
+import { CheckSquare } from 'lucide-react';
 import type { Approval } from '@/types';
 
 interface ReviewSurfaceProps {
   selectedMissionId?: string | null;
   onNavigateToMission?: (missionId: string) => void;
   onNavigateToConversation?: (missionId: string) => void;
+  onNavigateToSpecImpact?: (missionId: string, criterionId: string) => void;
 }
 
 export function ReviewSurface({
   selectedMissionId: _selectedMissionId, // Reserved for future use (auto-selecting review items)
   onNavigateToMission,
   onNavigateToConversation,
+  onNavigateToSpecImpact,
 }: ReviewSurfaceProps) {
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const [showBatchApproval, setShowBatchApproval] = useState(false);
@@ -35,6 +38,9 @@ export function ReviewSurface({
       affectedFiles: ['src/auth/routes.ts', 'src/auth/jwt.service.ts'],
       impact: 'New endpoint that other services will depend on for authentication',
       timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      // V4 traceability
+      missionId: 'mission-auth-101',
+      changeId: 'change-auth-2',
     },
     {
       id: 'approval-2',
@@ -64,6 +70,9 @@ export function ReviewSurface({
       affectedFiles: ['src/auth/password.service.ts', 'src/users/user.entity.ts'],
       impact: 'Critical security implementation - must be done correctly',
       timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+      // V4 traceability
+      missionId: 'mission-auth-101',
+      changeId: 'change-auth-1',
     },
     {
       id: 'approval-4',
@@ -222,91 +231,12 @@ export function ReviewSurface({
                 />
               </div>
 
-              {/* Right: Context Panel */}
-              <div className="flex flex-col h-full bg-bg-0 overflow-y-auto">
-                <div className="p-6 space-y-6">
-                  {/* Mission Context */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-text-2 uppercase tracking-wide mb-3">
-                      Mission Context
-                    </h3>
-                    <div className="bg-bg-1 p-4 rounded-lg border border-border-1 space-y-3">
-                      <div>
-                        <div className="text-xs text-text-3 mb-1">Part of Mission</div>
-                        <div className="text-sm font-medium text-text-1">User Authentication with JWT</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-text-3 mb-1">Current Phase</div>
-                        <div className="text-sm text-text-1">Executing</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-text-3 mb-1">Progress</div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-bg-2 rounded-full overflow-hidden">
-                            <div className="h-full bg-accent-green rounded-full" style={{ width: '65%' }} />
-                          </div>
-                          <span className="text-xs font-medium text-text-2">65%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Related Items */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-text-2 uppercase tracking-wide mb-3">
-                      Related Items
-                    </h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 px-3 py-2 bg-bg-1 rounded border border-border-1 text-sm text-text-2">
-                        <Layers className="w-4 h-4 text-text-3" />
-                        <span>3 other changes in this batch</span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-bg-1 rounded border border-border-1 text-sm text-text-2">
-                        <Layers className="w-4 h-4 text-text-3" />
-                        <span>2 pending decisions</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-text-2 uppercase tracking-wide mb-3">
-                      Quick Actions
-                    </h3>
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          // In a real app, approvals would have a missionId
-                          // For now, use a placeholder mission ID
-                          const missionId = (selectedApproval as any).missionId || 'mission-payment-202';
-                          onNavigateToMission?.(missionId);
-                        }}
-                        className="w-full text-left px-3 py-2 bg-bg-1 hover:bg-bg-2 rounded border border-border-1 text-sm text-text-1 transition-colors"
-                      >
-                        View in Diff Panel
-                      </button>
-                      <button
-                        onClick={() => {
-                          const missionId = (selectedApproval as any).missionId || 'mission-payment-202';
-                          onNavigateToMission?.(missionId);
-                        }}
-                        className="w-full text-left px-3 py-2 bg-bg-1 hover:bg-bg-2 rounded border border-border-1 text-sm text-text-1 transition-colors"
-                      >
-                        View Mission Details
-                      </button>
-                      <button
-                        onClick={() => {
-                          const missionId = (selectedApproval as any).missionId || 'mission-payment-202';
-                          onNavigateToConversation?.(missionId);
-                        }}
-                        className="w-full text-left px-3 py-2 bg-bg-1 hover:bg-bg-2 rounded border border-border-1 text-sm text-text-1 transition-colors"
-                      >
-                        View Conversation
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Right: Specification Context */}
+              <SpecificationContext
+                approval={selectedApproval}
+                onNavigateToMission={onNavigateToMission}
+                onNavigateToSpecImpact={onNavigateToSpecImpact}
+              />
             </div>
           ) : (
             // Empty state: Just show queue

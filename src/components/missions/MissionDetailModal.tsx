@@ -1,22 +1,37 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, Users, MessageSquare, Target, CheckCircle2 } from 'lucide-react';
+import { X, Calendar, DollarSign, Users, MessageSquare, Target, CheckCircle2, CheckSquare } from 'lucide-react';
 import { PipelineExecutionViewer } from './PipelineExecutionViewer';
 import { PlanViewer } from './PlanViewer';
 import { ConversationThread } from '@/components/conversation/ConversationThread';
 import { SpecificationImpactDashboard } from '@/components/specification/SpecificationImpactDashboard';
+import { FileList } from '@/components/diff/FileList';
+import { DiffViewer } from '@/components/diff/DiffViewer';
+import { ReasoningPanel } from '@/components/diff/ReasoningPanel';
+import { SpecificationTraceability } from '@/components/shared/SpecificationTraceability';
+import { ReviewQueue } from '@/components/review/ReviewQueue';
+import { ChangeReviewDetail } from '@/components/review/ChangeReviewDetail';
+import { SpecificationContext } from '@/components/review/SpecificationContext';
+import { BatchApprovalPanel } from '@/components/review/BatchApprovalPanel';
 import { useV3DataModel } from '@/hooks/useV3DataModel';
-import type { Mission } from '@/types';
+import { fileDiffs } from '@/data/mockDataV2';
+import type { Mission, FileChange, Change, PlanV4 } from '@/types';
 
 interface MissionDetailModalProps {
   mission: Mission;
+  focusedCriterionId?: string | null;
+  focusedFileId?: string | null;
   onClose: () => void;
+  onNavigateToDiff?: (taskId: string, commitSha?: string, fileId?: string) => void;
 }
 
-type TabType = 'overview' | 'pipeline' | 'plan' | 'conversation' | 'spec-impact';
+type TabType = 'overview' | 'pipeline' | 'plan' | 'conversation' | 'spec-impact' | 'diff' | 'review';
 
-export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps) {
+export function MissionDetailModal({ mission, focusedCriterionId, focusedFileId, onClose }: MissionDetailModalProps) {
   const { agents, teams } = useV3DataModel();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
+  const [showBatchApproval, setShowBatchApproval] = useState(false);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -31,6 +46,21 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
       document.removeEventListener('keydown', handleEscKey);
     };
   }, [onClose]);
+
+  // V4 Phase 8: Auto-switch to Spec Impact tab if criterionId provided
+  useEffect(() => {
+    if (focusedCriterionId && mission.specificationImpact) {
+      setActiveTab('spec-impact');
+    }
+  }, [focusedCriterionId, mission.specificationImpact]);
+
+  // V3: Auto-switch to diff tab if fileId provided
+  useEffect(() => {
+    if (focusedFileId && mission.execution?.changes && mission.execution.changes.length > 0) {
+      setActiveTab('diff');
+      setSelectedFileId(focusedFileId);
+    }
+  }, [focusedFileId, mission.execution?.changes]);
 
   // Get mission team
   const team = teams.find(t => t.id === mission.teamId);
@@ -82,6 +112,38 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
   };
+
+  // Get files from mission changes
+  const availableFiles = (mission.execution?.changes || [])
+    .filter((change): change is Change => !!change && !!change.path)
+    .map((change: Change) => ({
+      id: change.id,
+      filename: change.path.split('/').pop() || change.path,
+      path: change.path,
+      changeType: change.changeType,
+      additions: change.additions || 0,
+      deletions: change.deletions || 0,
+      agentId: change.agentId,
+      timestamp: change.timestamp,
+      commitShas: [change.commitSha].filter(Boolean) as string[],
+      reasoning: change.reasoning,
+      fulfillsAcceptanceCriteria: change.fulfillsAcceptanceCriteria,
+      specRationale: change.specRationale,
+    }));
+
+  const selectedFile = selectedFileId
+    ? availableFiles.find(f => f.id === selectedFileId)
+    : availableFiles[0];
+
+  const fileDiff = selectedFile ? fileDiffs[selectedFile.filename] : undefined;
+
+  // Get approvals for this mission
+  const missionApprovals = mission.execution?.approvals || [];
+  const pendingApprovals = missionApprovals.filter(a => a.status === 'pending');
+  const selectedApproval = selectedApprovalId
+    ? pendingApprovals.find(a => a.id === selectedApprovalId)
+    : null;
+  const highConfidenceCount = pendingApprovals.filter(a => (a.confidence || 0) >= 90).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -198,6 +260,32 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
               }`}
             >
               Spec Impact
+            </button>
+          )}
+          {/* Diff Tab */}
+          {mission.execution?.changes && mission.execution.changes.length > 0 && (
+            <button
+              onClick={() => setActiveTab('diff')}
+              className={`px-4 py-2 rounded transition-colors ${
+                activeTab === 'diff'
+                  ? 'bg-accent-blue/10 text-accent-blue font-medium'
+                  : 'text-text-2 hover:bg-bg-1'
+              }`}
+            >
+              Diff ({availableFiles.length})
+            </button>
+          )}
+          {/* Review Tab */}
+          {pendingApprovals.length > 0 && (
+            <button
+              onClick={() => setActiveTab('review')}
+              className={`px-4 py-2 rounded transition-colors ${
+                activeTab === 'review'
+                  ? 'bg-accent-blue/10 text-accent-blue font-medium'
+                  : 'text-text-2 hover:bg-bg-1'
+              }`}
+            >
+              Review ({pendingApprovals.length})
             </button>
           )}
         </div>
@@ -401,15 +489,174 @@ export function MissionDetailModal({ mission, onClose }: MissionDetailModalProps
           {activeTab === 'spec-impact' && mission.specificationImpact && (
             <SpecificationImpactDashboard
               mission={mission}
+              focusedCriterionId={focusedCriterionId}
               onNavigateToReview={(criterionId) => {
                 // TODO: Navigate to Review workspace with filter
                 console.log('Navigate to review for criterion:', criterionId);
               }}
               onNavigateToDiff={(fileId) => {
-                // TODO: Navigate to diff view for file
-                console.log('Navigate to diff for file:', fileId);
+                // Switch to diff tab with file selected
+                setSelectedFileId(fileId);
+                setActiveTab('diff');
               }}
             />
+          )}
+
+          {/* Diff Tab Content */}
+          {activeTab === 'diff' && availableFiles.length > 0 && (
+            <div className="flex-1 grid grid-cols-[260px_1fr_340px] overflow-hidden">
+              {/* Left: File List */}
+              <div className="border-r border-border-1 bg-bg-0 overflow-y-auto">
+                <FileList
+                  files={availableFiles as FileChange[]}
+                  selectedFile={selectedFile ? (selectedFile as FileChange) : null}
+                  onSelectFile={(file: any) => setSelectedFileId(file.id)}
+                />
+              </div>
+
+              {/* Middle: Diff Viewer */}
+              {selectedFile ? (
+                <DiffViewer
+                  file={selectedFile as FileChange}
+                  diff={fileDiff}
+                  taskId={mission.id}
+                  onNavigateToPipeline={() => setActiveTab('pipeline')}
+                  onNavigateToSpecImpact={() => setActiveTab('spec-impact')}
+                />
+              ) : (
+                <div className="flex items-center justify-center bg-bg-0">
+                  <p className="text-text-3 text-sm">Select a file to view changes</p>
+                </div>
+              )}
+
+              {/* Right: Context Panels */}
+              <div className="bg-bg-1 border-l border-border-1 overflow-y-auto">
+                {/* Reasoning Panel */}
+                <ReasoningPanel diff={fileDiff} />
+
+                {/* Specification Traceability */}
+                {selectedFile && (() => {
+                  const plan = mission.plan as PlanV4;
+                  if (!plan?.acceptanceCriteria) return null;
+
+                  const relevantCriteria = plan.acceptanceCriteria.filter(
+                    (ac) => selectedFile.fulfillsAcceptanceCriteria?.includes(ac.id)
+                  );
+
+                  if (relevantCriteria.length === 0) return null;
+
+                  return (
+                    <SpecificationTraceability
+                      acceptanceCriteria={relevantCriteria as any}
+                      taskId={mission.id}
+                      onNavigateToSpec={() => {
+                        setActiveTab('spec-impact');
+                      }}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Review Tab Content */}
+          {activeTab === 'review' && pendingApprovals.length > 0 && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Review Header with Stats */}
+              <div className="flex-shrink-0 px-6 py-4 border-b border-border-1 bg-bg-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-text-1 mb-1">
+                      {pendingApprovals.length} Pending Approvals
+                    </h3>
+                    <p className="text-sm text-text-3">
+                      Review changes, decisions, and actions for this mission
+                    </p>
+                  </div>
+
+                  {/* Batch Approve Button */}
+                  {highConfidenceCount > 0 && (
+                    <button
+                      onClick={() => setShowBatchApproval(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-accent-green hover:bg-accent-green/80 text-white rounded-lg font-medium transition-colors"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      Batch Approve ({highConfidenceCount})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Three-column layout */}
+              <div className="flex-1 grid grid-cols-[320px_1fr_360px] overflow-hidden">
+                {/* Left: Review Queue */}
+                <ReviewQueue
+                  approvals={pendingApprovals}
+                  selectedApprovalId={selectedApprovalId}
+                  onSelectApproval={setSelectedApprovalId}
+                />
+
+                {/* Middle: Approval Detail */}
+                {selectedApproval ? (
+                  <div className="border-x border-border-1">
+                    <ChangeReviewDetail
+                      approval={selectedApproval}
+                      onApprove={(approvalId) => {
+                        console.log('Approve:', approvalId);
+                        // TODO: Update approval status
+                        setSelectedApprovalId(null);
+                      }}
+                      onReject={(approvalId, reason) => {
+                        console.log('Reject:', approvalId, reason);
+                        // TODO: Update approval status
+                        setSelectedApprovalId(null);
+                      }}
+                      onAnswerUncertainty={(response) => {
+                        console.log('Answer uncertainty:', response);
+                        // TODO: Send response to agent
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center bg-bg-0 border-x border-border-1">
+                    <div className="text-center space-y-3 max-w-md px-6">
+                      <CheckSquare className="w-12 h-12 mx-auto text-text-3 opacity-50" />
+                      <h3 className="text-lg font-semibold text-text-2">Select an approval</h3>
+                      <p className="text-sm text-text-3">
+                        Choose an item from the queue to review details and take action
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right: Specification Context */}
+                {selectedApproval && (
+                  <SpecificationContext
+                    approval={selectedApproval}
+                    onNavigateToMission={() => {
+                      // Already in mission modal, no action needed
+                    }}
+                    onNavigateToSpecImpact={() => {
+                      // Switch to spec-impact tab
+                      setActiveTab('spec-impact');
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Batch Approval Modal */}
+              {showBatchApproval && (
+                <BatchApprovalPanel
+                  approvals={pendingApprovals}
+                  onBatchApprove={(approvalIds) => {
+                    console.log('Batch approve:', approvalIds);
+                    // TODO: Update approval statuses
+                    setShowBatchApproval(false);
+                  }}
+                  onClose={() => setShowBatchApproval(false)}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -1,21 +1,31 @@
 import { clsx } from 'clsx';
-import { FileEdit, Check } from 'lucide-react';
+import { FileEdit, Check, Target } from 'lucide-react';
 import { getAgentById } from '@/data/mockData';
-import type { FileChange, FileDiff } from '@/types';
+import type { FileChange, FileDiff, TaskFileChange } from '@/types';
 
 interface DiffViewerProps {
   file: FileChange;
   diff?: FileDiff;
   taskId?: string;
   onNavigateToPipeline?: (taskId: string) => void;
+  onNavigateToSpecImpact?: (missionId: string, criterionId?: string) => void;
 }
 
-export function DiffViewer({ file, diff, taskId, onNavigateToPipeline }: DiffViewerProps) {
+export function DiffViewer({ file, diff, taskId, onNavigateToPipeline, onNavigateToSpecImpact }: DiffViewerProps) {
   const agent = file.agentId ? getAgentById(file.agentId) : null;
 
   const handleReviseSpec = () => {
     if (taskId && onNavigateToPipeline) {
       onNavigateToPipeline(taskId);
+    }
+  };
+
+  const handleViewSpecification = () => {
+    if (taskId && onNavigateToSpecImpact) {
+      // Get first criterion from this file's traceability
+      const taskFileChange = file as unknown as TaskFileChange;
+      const criterionId = taskFileChange.fulfillsAcceptanceCriteria?.[0];
+      onNavigateToSpecImpact(taskId, criterionId);
     }
   };
 
@@ -54,6 +64,18 @@ export function DiffViewer({ file, diff, taskId, onNavigateToPipeline }: DiffVie
             >
               <FileEdit className="w-3.5 h-3.5" />
               Revise Specification
+            </button>
+          )}
+
+          {/* View Specification Button - V4 Phase 8 */}
+          {taskId && onNavigateToSpecImpact && (
+            <button
+              onClick={handleViewSpecification}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-bg-2 border border-border-1 rounded text-text-2 hover:bg-bg-3 hover:text-accent-cyan hover:border-accent-cyan/30 transition-colors"
+              title="View specification impact for this change"
+            >
+              <Target className="w-3.5 h-3.5" />
+              View Specification
             </button>
           )}
 

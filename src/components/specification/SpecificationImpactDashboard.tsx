@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Target, DollarSign, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { CriterionCard } from './CriterionCard';
 import { CriterionCostBreakdown } from './CriterionCostBreakdown';
@@ -7,17 +8,37 @@ import type { Mission, PlanV4 } from '@/types';
 
 interface SpecificationImpactDashboardProps {
   mission: Mission;
+  focusedCriterionId?: string | null;
   onNavigateToReview?: (criterionId: string) => void;
   onNavigateToDiff?: (fileId: string) => void;
 }
 
 export function SpecificationImpactDashboard({
   mission,
+  focusedCriterionId,
   onNavigateToReview,
   onNavigateToDiff
 }: SpecificationImpactDashboardProps) {
   const impact = mission.specificationImpact;
   const plan = mission.plan as PlanV4;
+
+  // V4 Phase 8: Scroll to focused criterion with highlight animation
+  useEffect(() => {
+    if (focusedCriterionId) {
+      setTimeout(() => {
+        const element = document.getElementById(`criterion-card-${focusedCriterionId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Add highlight animation
+          element.classList.add('ring-2', 'ring-accent-blue', 'ring-offset-2', 'ring-offset-bg-0');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-accent-blue', 'ring-offset-2', 'ring-offset-bg-0');
+          }, 2000);
+        }
+      }, 100);
+    }
+  }, [focusedCriterionId]);
 
   // Empty state
   if (!impact || !plan?.acceptanceCriteria) {
@@ -130,6 +151,7 @@ export function SpecificationImpactDashboard({
               return (
                 <CriterionCard
                   key={criterion.id}
+                  id={`criterion-card-${criterion.id}`}
                   criterion={criterion}
                   summary={summary}
                   onNavigateToReview={() => onNavigateToReview?.(criterion.id)}

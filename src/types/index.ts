@@ -1486,6 +1486,10 @@ export interface Approval {
 
   // Timestamp
   timestamp: string;
+
+  // NEW V4 FIELDS for spec traceability:
+  missionId?: string;     // Link to parent mission
+  changeId?: string;      // Link to Change in mission.execution.changes
 }
 
 // -----------------------------------------------------------------------------

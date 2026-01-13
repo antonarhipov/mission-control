@@ -19,6 +19,9 @@ interface DiffPanelProps {
   selectedTaskId?: string | null;
   selectedCommitSha?: string | null;
   onNavigateToPipeline?: (taskId: string, criterionId?: string) => void;
+  // V4 Phase 8: Bidirectional navigation
+  focusedFileId?: string | null;
+  onNavigateToSpecImpact?: (missionId: string, criterionId?: string) => void;
 }
 
 export function DiffPanel({
@@ -26,7 +29,9 @@ export function DiffPanel({
   onSelectWorktree,
   selectedTaskId,
   selectedCommitSha,
-  onNavigateToPipeline
+  onNavigateToPipeline,
+  focusedFileId,
+  onNavigateToSpecImpact
 }: DiffPanelProps) {
   const { isV2, tasks } = useDataModel();
 
@@ -74,6 +79,24 @@ export function DiffPanel({
       setSelectedCommit(selectedCommitSha);
     }
   }, [selectedCommitSha]);
+
+  // V4 Phase 8: Auto-select focused file
+  useEffect(() => {
+    if (focusedFileId && availableFiles.length > 0) {
+      const file = availableFiles.find((f: any) => f.id === focusedFileId);
+      if (file) {
+        setSelectedFile(file as any);
+
+        // Scroll to file in sidebar (if file list has IDs)
+        setTimeout(() => {
+          const element = document.getElementById(`file-${focusedFileId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    }
+  }, [focusedFileId, availableFiles]);
 
   const fileDiff = fileDiffs[selectedFile?.filename || ''];
   const totalAdditions = availableFiles.reduce((sum, f) => sum + f.additions, 0);
@@ -374,6 +397,7 @@ export function DiffPanel({
             diff={fileDiff}
             taskId={isV2 && taskV2 ? taskV2.id : undefined}
             onNavigateToPipeline={onNavigateToPipeline}
+            onNavigateToSpecImpact={onNavigateToSpecImpact}
           />
         )}
         {!selectedFile && availableFiles.length === 0 && (
